@@ -1,0 +1,6 @@
+[project]
+name = "Riichi Round Calc"
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]

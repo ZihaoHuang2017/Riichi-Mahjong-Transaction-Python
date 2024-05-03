@@ -1,4 +1,4 @@
-from Types import (
+from .riichi_types import (
     NewRound,
     get_empty_score_deltas,
     Transaction,
@@ -8,8 +8,8 @@ from Types import (
     Hand,
     RIICHI_STICK_VALUE,
 )
-from Points import calculate_hand_value, MANGAN_BASE_POINT
-from Helper import containing_any
+from .points import calculate_hand_value, MANGAN_BASE_POINT
+from .helper import containing_any
 
 
 def get_deal_in_multiplier(person_index: int, dealer_index: int) -> int:
@@ -98,7 +98,7 @@ def find_head_bump_winner(transactions: list[Transaction]) -> int:
     losers = set()
     for transaction in transactions:
         for i in range(NUM_PLAYERS):
-            if transaction.paoTarget == i:
+            if transaction.pao_target == i:
                 continue
             if transaction.score_deltas[i] > 0:
                 winners.add(i)
@@ -167,6 +167,7 @@ def transform_transactions(
 ) -> list[Transaction]:
     if not transactions:
         return []
+    transactions = transactions.copy()
     transaction = determine_honba_transaction(transactions)
     new_transaction = add_honba(transaction, honba)
     for i in range(NUM_PLAYERS):
@@ -197,40 +198,40 @@ def determine_honba_transaction(transactions: list[Transaction]) -> Transaction:
 def add_honba(transaction: Transaction, honba: int) -> Transaction:
     new_transaction = Transaction(
         transaction.transaction_type,
-        transaction.score_deltas,
+        get_empty_score_deltas(),
         transaction.hand,
-        transaction.paoTarget,
+        transaction.pao_target,
     )
     for i in range(NUM_PLAYERS):
         new_transaction.score_deltas[i] = transaction.score_deltas[i]
     match new_transaction.transaction_type:
-        case TransactionType.NAGASHI_MANGAN, TransactionType.INROUND_RYUUKYOKU:
+        case TransactionType.NAGASHI_MANGAN | TransactionType.INROUND_RYUUKYOKU:
             pass
         case TransactionType.SELF_DRAW:
             for i in range(NUM_PLAYERS):
                 if new_transaction.score_deltas[i] > 0:
                     new_transaction.score_deltas[i] += 300 * honba
                 else:
-                    new_transaction.score_deltas[i] = -100 * honba
-        case TransactionType.DEAL_IN, TransactionType.DEAL_IN_PAO:
+                    new_transaction.score_deltas[i] -= 100 * honba
+        case TransactionType.DEAL_IN | TransactionType.DEAL_IN_PAO:
             handle_deal_in(new_transaction, honba)
         case TransactionType.SELF_DRAW_PAO:
             for i in range(NUM_PLAYERS):
                 if new_transaction.score_deltas[i] > 0:
                     new_transaction.score_deltas[i] += 300 * honba
                 elif new_transaction.score_deltas[i] < 0:
-                    new_transaction.score_deltas[i] = -300 * honba
+                    new_transaction.score_deltas[i] -= 300 * honba
     return new_transaction
 
 
 def handle_deal_in(transaction: Transaction, honba: int) -> None:
     for i in range(NUM_PLAYERS):
-        if transaction.paoTarget == i:
+        if transaction.pao_target == i:
             continue
         if transaction.score_deltas[i] > 0:
             transaction.score_deltas[i] += 300 * honba
         elif transaction.score_deltas[i] < 0:
-            transaction.score_deltas[i] = -300 * honba
+            transaction.score_deltas[i] -= 300 * honba
 
 
 class RiichiRound:

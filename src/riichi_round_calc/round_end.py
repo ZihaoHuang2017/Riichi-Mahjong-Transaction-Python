@@ -1,4 +1,4 @@
-from Types import (
+from .riichi_types import (
     ConcludedRound,
     NewRound,
     NUM_PLAYERS,
@@ -9,7 +9,7 @@ from Types import (
     get_starting_score,
 )
 
-from RiichiRound import generate_overall_score_deltas
+from .riichi_round import generate_overall_score_deltas
 
 
 def get_new_honba_count(transactions, dealer_index, honba):

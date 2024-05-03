@@ -1,5 +1,5 @@
 import math
-from Types import Hand
+from .riichi_types import Hand
 
 MANGAN_BASE_POINT = 2000
 
@@ -33,5 +33,5 @@ def calculate_hand_value(multiplier: int, hand: Hand):
     if han >= 5:
         return mangan_value(han) * multiplier
     mangan_payout = MANGAN_BASE_POINT * multiplier
-    hand_value = math.ceil((fu * (2 ** (2 + han)) * multiplier) // 100) * 100
+    hand_value = math.ceil((fu * (2 ** (2 + han)) * multiplier) / 100) * 100
     return mangan_payout if hand_value > mangan_payout else hand_value

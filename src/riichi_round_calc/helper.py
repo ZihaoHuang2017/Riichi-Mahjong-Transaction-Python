@@ -1,4 +1,4 @@
-from Types import Transaction, TransactionType
+from .riichi_types import Transaction, TransactionType
 
 
 def containing_any(

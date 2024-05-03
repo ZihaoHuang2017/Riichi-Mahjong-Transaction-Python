@@ -50,7 +50,7 @@ class Transaction:
     transaction_type: TransactionType
     score_deltas: list[int]
     hand: Optional[Hand] = None
-    paoTarget: Optional[int] = None
+    pao_target: Optional[int] = None
 
 
 @dataclass
