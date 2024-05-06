@@ -28,8 +28,8 @@ def get_deal_in_transaction(
     score_deltas = get_empty_score_deltas()
     multiplier = get_deal_in_multiplier(winner_index, dealer_index)
     hand_value = calculate_hand_value(multiplier, hand)
-    score_deltas[winner_index] -= hand_value
-    score_deltas[loser_index] += hand_value
+    score_deltas[winner_index] = hand_value
+    score_deltas[loser_index] = -hand_value
     return Transaction(TransactionType.DEAL_IN, score_deltas, hand)
 
 
@@ -68,7 +68,11 @@ def get_nagashi_mangan_transaction(winner_index: int, dealer_index: int) -> Tran
 
 
 def get_deal_in_pao_transaction(
-    winner_index, deal_in_person_index, pao_player_index, dealer_index, hand
+    winner_index: int,
+    deal_in_person_index: int,
+    pao_player_index: int,
+    dealer_index: int,
+    hand: Hand,
 ) -> Transaction:
     score_deltas = get_empty_score_deltas()
     multiplier = get_deal_in_multiplier(winner_index, dealer_index)
@@ -81,7 +85,7 @@ def get_deal_in_pao_transaction(
 
 
 def get_self_draw_pao_transaction(
-    winner_index, pao_player_index, dealer_index, hand: Hand
+    winner_index: int, pao_player_index: int, dealer_index: int, hand: Hand
 ) -> Transaction:
     score_deltas = get_empty_score_deltas()
     multiplier = get_deal_in_multiplier(winner_index, dealer_index)
@@ -130,7 +134,7 @@ def generate_tenpai_score_deltas(tenpais: list[int]) -> list[int]:
         if i in tenpais:
             score_deltas[i] = 3000 // len(tenpais)
         else:
-            score_deltas[i] = -3000 // len(tenpais)
+            score_deltas[i] = -3000 // (NUM_PLAYERS - len(tenpais))
     return score_deltas
 
 
@@ -154,11 +158,12 @@ def generate_overall_score_deltas(concluded_round: ConcludedRound) -> list[int]:
             generate_tenpai_score_deltas(concluded_round.tenpais), raw_score_deltas
         )
     ]
-    headbump_winner = find_head_bump_winner(concluded_round.transactions)
-    if concluded_round.end_riichi_stick_count == 0:
-        riichi_deltas[headbump_winner] += (
-            concluded_round.start_riichi_stick_count + len(concluded_round.riichis)
-        ) * RIICHI_STICK_VALUE
+    if concluded_round.transactions:
+        headbump_winner = find_head_bump_winner(concluded_round.transactions)
+        if concluded_round.end_riichi_stick_count == 0:
+            riichi_deltas[headbump_winner] += (
+                concluded_round.start_riichi_stick_count + len(concluded_round.riichis)
+            ) * RIICHI_STICK_VALUE
     return riichi_deltas
 
 
@@ -245,23 +250,27 @@ class RiichiRound:
         self.transactions = []
         self.dealer_index = self.round_number - 1
 
-    def add_deal_in(self, winner_index, loser_index, hand):
+    def add_deal_in(self, winner_index: int, loser_index: int, hand: Hand):
         self.transactions.append(
             get_deal_in_transaction(winner_index, loser_index, self.dealer_index, hand)
         )
 
-    def add_self_draw(self, winner_index, hand):
+    def add_self_draw(self, winner_index: int, hand: Hand):
         self.transactions.append(
             get_self_draw_transaction(winner_index, self.dealer_index, hand)
         )
 
-    def add_nagashi_mangan(self, winner_index):
+    def add_nagashi_mangan(self, winner_index: int):
         self.transactions.append(
             get_nagashi_mangan_transaction(winner_index, self.dealer_index)
         )
 
     def add_deal_in_pao(
-        self, winner_index, deal_in_person_index, pao_person_index, hand
+        self,
+        winner_index: int,
+        deal_in_person_index: int,
+        pao_person_index: int,
+        hand: Hand,
     ):
         self.transactions.append(
             get_deal_in_pao_transaction(
@@ -273,7 +282,7 @@ class RiichiRound:
             )
         )
 
-    def add_self_draw_pao(self, winner_index, pao_person_index, hand):
+    def add_self_draw_pao(self, winner_index: int, pao_person_index: int, hand: Hand):
         self.transactions.append(
             get_self_draw_pao_transaction(
                 winner_index, pao_person_index, self.dealer_index, hand
@@ -291,7 +300,7 @@ class RiichiRound:
 
     def get_final_riichi_sticks(self):
         for transaction in self.transactions:
-            if transaction.transactionType in [
+            if transaction.transaction_type in [
                 TransactionType.DEAL_IN,
                 TransactionType.SELF_DRAW,
                 TransactionType.SELF_DRAW_PAO,
@@ -300,7 +309,7 @@ class RiichiRound:
                 return 0
         return self.start_riichi_stick_count + len(self.riichis)
 
-    def concludeRound(self) -> ConcludedRound:
+    def conclude_round(self) -> ConcludedRound:
         return ConcludedRound(
             round_number=self.round_number,
             round_wind=self.round_wind,

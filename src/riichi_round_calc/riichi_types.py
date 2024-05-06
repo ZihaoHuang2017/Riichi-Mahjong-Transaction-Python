@@ -2,6 +2,8 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import Optional
 
+from dacite import from_dict
+
 NUM_PLAYERS = 4
 STARTING_POINT = 25000
 RETURNING_POINT = 30000
@@ -66,6 +68,10 @@ class ConcludedRound:
     tenpais: list[int]
     transactions: list[Transaction]
 
+    @staticmethod
+    def from_dict(obj: dict):
+        return from_dict(ConcludedRound, obj)
+
 
 @dataclass
 class NewRound:
@@ -73,3 +79,7 @@ class NewRound:
     round_number: int
     honba: int
     start_riichi_stick_count: int
+
+    @staticmethod
+    def from_dict(obj: dict):
+        return from_dict(NewRound, obj)
