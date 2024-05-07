@@ -1,4 +1,3 @@
-import pytest
 from riichi_round_calc.riichi_types import (
     Wind,
     TransactionType,
@@ -43,13 +42,13 @@ def test_normal_deal_in():
 
     assert ending_result == ConcludedRound.from_dict(expected_ending_result)
     assert generate_overall_score_deltas(ending_result) == [-1000, 0, 1000, 0]
-    new_round = {
+    expected_next_round = {
         "round_wind": Wind.EAST,
         "round_number": 2,
         "honba": 0,
         "start_riichi_stick_count": 0,
     }
-    assert generate_next_round(ending_result) == NewRound.from_dict(new_round)
+    assert generate_next_round(ending_result) == NewRound.from_dict(expected_next_round)
 
 
 def test_normal_deal_in_30fu_1han_2_to_0():
@@ -84,13 +83,13 @@ def test_normal_deal_in_30fu_1han_2_to_0():
 
     assert ending_result == ConcludedRound.from_dict(expected_ending_result)
     assert generate_overall_score_deltas(ending_result) == [1500, 0, -1500, 0]
-    new_round = {
+    expected_next_round = {
         "round_wind": Wind.EAST,
         "round_number": 1,
         "honba": 1,
         "start_riichi_stick_count": 0,
     }
-    assert generate_next_round(ending_result) == NewRound.from_dict(new_round)
+    assert generate_next_round(ending_result) == NewRound.from_dict(expected_next_round)
 
 
 def test_deal_in_30fu_2han_1_to_0_0_1_riichi():
@@ -126,13 +125,13 @@ def test_deal_in_30fu_2han_1_to_0_0_1_riichi():
 
     assert ending_result == ConcludedRound.from_dict(expected_ending_result)
     assert generate_overall_score_deltas(ending_result) == [3900, -3900, 0, 0]
-    new_round = {
+    expected_next_round = {
         "round_wind": Wind.EAST,
         "round_number": 3,
         "honba": 0,
         "start_riichi_stick_count": 0,
     }
-    assert generate_next_round(ending_result) == NewRound.from_dict(new_round)
+    assert generate_next_round(ending_result) == NewRound.from_dict(expected_next_round)
 
 
 def test_double_ron():
@@ -174,13 +173,13 @@ def test_double_ron():
 
     assert ending_result == ConcludedRound.from_dict(expected_ending_result)
     assert generate_overall_score_deltas(ending_result) == [8000, 12000, -20000, 0]
-    new_round = {
+    expected_next_round = {
         "round_wind": Wind.EAST,
         "round_number": 4,
         "honba": 0,
         "start_riichi_stick_count": 0,
     }
-    assert generate_next_round(ending_result) == NewRound.from_dict(new_round)
+    assert generate_next_round(ending_result) == NewRound.from_dict(expected_next_round)
 
 
 def test_double_ron_with_honba_and_riichi():
@@ -223,13 +222,13 @@ def test_double_ron_with_honba_and_riichi():
 
     assert ending_result == ConcludedRound.from_dict(expected_ending_result)
     assert generate_overall_score_deltas(ending_result) == [0, 4300, 11000, -15300]
-    new_round = {
+    expected_next_round = {
         "round_wind": Wind.SOUTH,
         "round_number": 1,
         "honba": 0,
         "start_riichi_stick_count": 0,
     }
-    assert generate_next_round(ending_result) == NewRound.from_dict(new_round)
+    assert generate_next_round(ending_result) == NewRound.from_dict(expected_next_round)
 
 
 def test_double_ron_with_honba_and_riichi_with_a_dealer_win():
@@ -272,13 +271,13 @@ def test_double_ron_with_honba_and_riichi_with_a_dealer_win():
 
     assert ending_result == ConcludedRound.from_dict(expected_ending_result)
     assert generate_overall_score_deltas(ending_result) == [0, -21300, 4300, 17000]
-    new_round = {
+    expected_next_round = {
         "round_wind": Wind.EAST,
         "round_number": 4,
         "honba": 2,
         "start_riichi_stick_count": 0,
     }
-    assert generate_next_round(ending_result) == NewRound.from_dict(new_round)
+    assert generate_next_round(ending_result) == NewRound.from_dict(expected_next_round)
 
 
 def test_order_agnostic_for_double_ron():
@@ -321,13 +320,13 @@ def test_order_agnostic_for_double_ron():
 
     assert ending_result == ConcludedRound.from_dict(expected_ending_result)
     assert generate_overall_score_deltas(ending_result) == [0, 4300, 11000, -15300]
-    new_round = {
+    expected_next_round = {
         "round_wind": Wind.SOUTH,
         "round_number": 1,
         "honba": 0,
         "start_riichi_stick_count": 0,
     }
-    assert generate_next_round(ending_result) == NewRound.from_dict(new_round)
+    assert generate_next_round(ending_result) == NewRound.from_dict(expected_next_round)
 
 
 def test_tsumo_30fu_3han_by_dealer():
@@ -362,13 +361,13 @@ def test_tsumo_30fu_3han_by_dealer():
 
     assert ending_result == ConcludedRound.from_dict(expected_ending_result)
     assert generate_overall_score_deltas(ending_result) == [-2000, 6000, -2000, -2000]
-    new_round = {
+    expected_next_round = {
         "round_wind": Wind.EAST,
         "round_number": 2,
         "honba": 1,
         "start_riichi_stick_count": 0,
     }
-    assert generate_next_round(ending_result) == NewRound.from_dict(new_round)
+    assert generate_next_round(ending_result) == NewRound.from_dict(expected_next_round)
 
 
 def test_tsumo_30fu_3han_by_non_dealer():
@@ -403,13 +402,13 @@ def test_tsumo_30fu_3han_by_non_dealer():
 
     assert ending_result == ConcludedRound.from_dict(expected_ending_result)
     assert generate_overall_score_deltas(ending_result) == [-1000, -2000, -1000, 4000]
-    new_round = {
+    expected_next_round = {
         "round_wind": Wind.EAST,
         "round_number": 3,
         "honba": 0,
         "start_riichi_stick_count": 0,
     }
-    assert generate_next_round(ending_result) == NewRound.from_dict(new_round)
+    assert generate_next_round(ending_result) == NewRound.from_dict(expected_next_round)
 
 
 def test_draw_with_one_tenpai_dealer():
@@ -437,13 +436,13 @@ def test_draw_with_one_tenpai_dealer():
 
     assert ending_result == ConcludedRound.from_dict(expected_ending_result)
     assert generate_overall_score_deltas(ending_result) == [3000, -1000, -1000, -1000]
-    new_round = {
+    expected_next_round = {
         "round_wind": Wind.EAST,
         "round_number": 1,
         "honba": 1,
         "start_riichi_stick_count": 0,
     }
-    assert generate_next_round(ending_result) == NewRound.from_dict(new_round)
+    assert generate_next_round(ending_result) == NewRound.from_dict(expected_next_round)
 
 
 def test_draw_with_one_tenpai_non_dealer():
@@ -471,13 +470,13 @@ def test_draw_with_one_tenpai_non_dealer():
 
     assert ending_result == ConcludedRound.from_dict(expected_ending_result)
     assert generate_overall_score_deltas(ending_result) == [-1000, 3000, -1000, -1000]
-    new_round = {
+    expected_next_round = {
         "round_wind": Wind.EAST,
         "round_number": 2,
         "honba": 1,
         "start_riichi_stick_count": 0,
     }
-    assert generate_next_round(ending_result) == NewRound.from_dict(new_round)
+    assert generate_next_round(ending_result) == NewRound.from_dict(expected_next_round)
 
 
 def test_draw_with_all_tenpai_riichi_by_0():
@@ -506,13 +505,13 @@ def test_draw_with_all_tenpai_riichi_by_0():
 
     assert ending_result == ConcludedRound.from_dict(expected_ending_result)
     assert generate_overall_score_deltas(ending_result) == [-1000, 0, 0, 0]
-    new_round = {
+    expected_next_round = {
         "round_wind": Wind.EAST,
         "round_number": 1,
         "honba": 1,
         "start_riichi_stick_count": 1,
     }
-    assert generate_next_round(ending_result) == NewRound.from_dict(new_round)
+    assert generate_next_round(ending_result) == NewRound.from_dict(expected_next_round)
 
 
 def test_draw_with_no_tenpai_1_riichi_stick_on_table():
@@ -540,13 +539,13 @@ def test_draw_with_no_tenpai_1_riichi_stick_on_table():
 
     assert ending_result == ConcludedRound.from_dict(expected_ending_result)
     assert generate_overall_score_deltas(ending_result) == [0, 0, 0, 0]
-    new_round = {
+    expected_next_round = {
         "round_wind": Wind.EAST,
         "round_number": 3,
         "honba": 1,
         "start_riichi_stick_count": 1,
     }
-    assert generate_next_round(ending_result) == NewRound.from_dict(new_round)
+    assert generate_next_round(ending_result) == NewRound.from_dict(expected_next_round)
 
 
 def test_advance_to_south_1_from_draw():
