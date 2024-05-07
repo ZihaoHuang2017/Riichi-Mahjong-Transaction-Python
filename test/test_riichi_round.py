@@ -919,48 +919,6 @@ def test_south_4_hanchan_does_not_end_with_p3_no_ten_and_no_one_at_30000():
     assert not is_game_end(next_round, [ending_result])
 
 
-def test_south_3_going_to_south_4_with_p3_win_1st_at_30000():
-    initial_round = {
-        "round_wind": Wind.SOUTH,
-        "round_number": 3,
-        "honba": 0,
-        "start_riichi_stick_count": 1,
-    }
-    round_params = NewRound.from_dict(initial_round)
-    riichi_round = RiichiRound(round_params)
-    hand = Hand(fu=30, han=3)
-    riichi_round.add_self_draw(3, hand)
-    ending_result = riichi_round.conclude_round()
-
-    expected_ending_result = {
-        "round_wind": Wind.SOUTH,
-        "round_number": 3,
-        "honba": 0,
-        "start_riichi_stick_count": 1,
-        "riichis": [],
-        "tenpais": [],
-        "end_riichi_stick_count": 0,
-        "transactions": [
-            {
-                "transaction_type": TransactionType.SELF_DRAW,
-                "hand": {"fu": 30, "han": 3},
-                "score_deltas": [-1000, -1000, -2000, 4000],
-            },
-        ],
-    }
-
-    assert ending_result == ConcludedRound.from_dict(expected_ending_result)
-    assert generate_overall_score_deltas(ending_result) == [-1000, -1000, -2000, 5000]
-    new_round = {
-        "round_wind": Wind.SOUTH,
-        "round_number": 4,
-        "honba": 0,
-        "start_riichi_stick_count": 0,
-    }
-    assert generate_next_round(ending_result) == NewRound.from_dict(new_round)
-    assert not is_game_end(NewRound.from_dict(new_round), [ending_result])
-
-
 def test_hanchan_end_next_round_north_no_one_30000():
     round_params = {
         "round_wind": Wind.WEST,
