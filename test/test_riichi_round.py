@@ -968,10 +968,10 @@ def test_hanchan_end_next_round_north_no_one_30000():
         "honba": 0,
         "start_riichi_stick_count": 0,
     }
-    round_instance = RiichiRound(NewRound.from_dict(round_params))
+    riichi_round = RiichiRound(NewRound.from_dict(round_params))
     hand = Hand(fu=30, han=1)
-    round_instance.add_deal_in(0, 1, hand)
-    ending_result = round_instance.conclude_round()
+    riichi_round.add_deal_in(0, 1, hand)
+    ending_result = riichi_round.conclude_round()
 
     expected_overall_score_delta = [1000, -1000, 0, 0]
     next_round = generate_next_round(ending_result)
@@ -996,11 +996,11 @@ def test_hanchan_not_end_p1_at_0():
         "honba": 0,
         "start_riichi_stick_count": 0,
     }
-    round_instance = RiichiRound(NewRound.from_dict(round_params))
-    round_instance.set_riichis([1])
+    riichi_round = RiichiRound(NewRound.from_dict(round_params))
+    riichi_round.set_riichis([1])
     hand = Hand(fu=30, han=8)
-    round_instance.add_deal_in(3, 1, hand)
-    ending_result = round_instance.conclude_round()
+    riichi_round.add_deal_in(3, 1, hand)
+    ending_result = riichi_round.conclude_round()
 
     expected_overall_score_delta = [0, -25000, 0, 25000]
     next_round = generate_next_round(ending_result)
@@ -1025,11 +1025,11 @@ def test_hanchan_end_p1_less_than_0():
         "honba": 1,
         "start_riichi_stick_count": 0,
     }
-    round_instance = RiichiRound(NewRound.from_dict(round_params))
-    round_instance.set_riichis([1])
+    riichi_round = RiichiRound(NewRound.from_dict(round_params))
+    riichi_round.set_riichis([1])
     hand = Hand(fu=30, han=8)
-    round_instance.add_deal_in(3, 1, hand)
-    ending_result = round_instance.conclude_round()
+    riichi_round.add_deal_in(3, 1, hand)
+    ending_result = riichi_round.conclude_round()
 
     expected_overall_score_delta = [0, -25300, 0, 25300]
     next_round = generate_next_round(ending_result)
@@ -1054,10 +1054,10 @@ def test_non_dealer_nagashi_mangan():
         "honba": 0,
         "start_riichi_stick_count": 0,
     }
-    round_instance = RiichiRound(NewRound.from_dict(round_params))
-    round_instance.add_nagashi_mangan(2)
-    round_instance.set_tenpais([])
-    ending_result = round_instance.conclude_round()
+    riichi_round = RiichiRound(NewRound.from_dict(round_params))
+    riichi_round.add_nagashi_mangan(2)
+    riichi_round.set_tenpais([])
+    ending_result = riichi_round.conclude_round()
 
     expected_ending_result = {
         "round_wind": Wind.EAST,
@@ -1095,10 +1095,10 @@ def test_dealer_nagashi_mangan():
         "honba": 0,
         "start_riichi_stick_count": 0,
     }
-    round_instance = RiichiRound(NewRound.from_dict(round_params))
-    round_instance.add_nagashi_mangan(0)
-    round_instance.set_tenpais([])
-    ending_result = round_instance.conclude_round()
+    riichi_round = RiichiRound(NewRound.from_dict(round_params))
+    riichi_round.add_nagashi_mangan(0)
+    riichi_round.set_tenpais([])
+    ending_result = riichi_round.conclude_round()
 
     expected_ending_result = {
         "round_wind": Wind.EAST,
@@ -1136,10 +1136,10 @@ def test_non_dealer_nagashi_mangan_dealer_tenpai():
         "honba": 0,
         "start_riichi_stick_count": 0,
     }
-    round_instance = RiichiRound(NewRound.from_dict(round_params))
-    round_instance.add_nagashi_mangan(2)
-    round_instance.set_tenpais([0])
-    ending_result = round_instance.conclude_round()
+    riichi_round = RiichiRound(NewRound.from_dict(round_params))
+    riichi_round.add_nagashi_mangan(2)
+    riichi_round.set_tenpais([0])
+    ending_result = riichi_round.conclude_round()
 
     expected_ending_result = {
         "round_wind": Wind.EAST,
@@ -1177,10 +1177,10 @@ def test_non_dealer_nagashi_mangan_previous_riichi_sticks():
         "honba": 0,
         "start_riichi_stick_count": 1,
     }
-    round_instance = RiichiRound(NewRound.from_dict(round_params))
-    round_instance.add_nagashi_mangan(3)
-    round_instance.set_tenpais([])
-    ending_result = round_instance.conclude_round()
+    riichi_round = RiichiRound(NewRound.from_dict(round_params))
+    riichi_round.add_nagashi_mangan(3)
+    riichi_round.set_tenpais([])
+    ending_result = riichi_round.conclude_round()
 
     expected_ending_result = {
         "round_wind": Wind.EAST,
@@ -1218,11 +1218,11 @@ def test_non_dealer_nagashi_mangan_p1_p2_riichi():
         "honba": 0,
         "start_riichi_stick_count": 0,
     }
-    round_instance = RiichiRound(NewRound.from_dict(round_params))
-    round_instance.set_riichis([1, 2])
-    round_instance.add_nagashi_mangan(3)
-    round_instance.set_tenpais([1, 2])
-    ending_result = round_instance.conclude_round()
+    riichi_round = RiichiRound(NewRound.from_dict(round_params))
+    riichi_round.set_riichis([1, 2])
+    riichi_round.add_nagashi_mangan(3)
+    riichi_round.set_tenpais([1, 2])
+    ending_result = riichi_round.conclude_round()
 
     expected_ending_result = {
         "round_wind": Wind.EAST,
@@ -1260,12 +1260,12 @@ def test_three_nagashi_mangan():
         "honba": 0,
         "start_riichi_stick_count": 0,
     }
-    round_instance = RiichiRound(NewRound.from_dict(round_params))
-    round_instance.add_nagashi_mangan(1)
-    round_instance.add_nagashi_mangan(2)
-    round_instance.add_nagashi_mangan(3)
-    round_instance.set_tenpais([])
-    ending_result = round_instance.conclude_round()
+    riichi_round = RiichiRound(NewRound.from_dict(round_params))
+    riichi_round.add_nagashi_mangan(1)
+    riichi_round.add_nagashi_mangan(2)
+    riichi_round.add_nagashi_mangan(3)
+    riichi_round.set_tenpais([])
+    ending_result = riichi_round.conclude_round()
 
     expected_ending_result = {
         "round_wind": Wind.EAST,
@@ -1311,10 +1311,10 @@ def test_pao_deal_in():
         "honba": 1,
         "start_riichi_stick_count": 0,
     }
-    round_instance = RiichiRound(NewRound.from_dict(round_params))
+    riichi_round = RiichiRound(NewRound.from_dict(round_params))
     hand_pao = Hand(fu=40, han=13)
-    round_instance.add_deal_in_pao(3, 1, 0, hand_pao)
-    ending_result = round_instance.conclude_round()
+    riichi_round.add_deal_in_pao(3, 1, 0, hand_pao)
+    ending_result = riichi_round.conclude_round()
 
     expected_ending_result = {
         "round_wind": Wind.EAST,
@@ -1344,12 +1344,12 @@ def test_pao_tsumo_yakuman():
         "honba": 1,
         "start_riichi_stick_count": 0,
     }
-    round_instance = RiichiRound(NewRound.from_dict(round_params))
+    riichi_round = RiichiRound(NewRound.from_dict(round_params))
     hand_pao = Hand(fu=40, han=13)
     hand = Hand(fu=30, han=13)
-    round_instance.add_self_draw_pao(3, 0, hand_pao)
-    round_instance.add_self_draw(3, hand)
-    ending_result = round_instance.conclude_round()
+    riichi_round.add_self_draw_pao(3, 0, hand_pao)
+    riichi_round.add_self_draw(3, hand)
+    ending_result = riichi_round.conclude_round()
 
     expected_ending_result = {
         "round_wind": Wind.EAST,
@@ -1399,12 +1399,12 @@ def test_pao_deal_in_two_yakuman():
         "honba": 1,
         "start_riichi_stick_count": 0,
     }
-    round_instance = RiichiRound(NewRound.from_dict(round_params))
+    riichi_round = RiichiRound(NewRound.from_dict(round_params))
     hand_pao = Hand(fu=40, han=13)
     hand = Hand(fu=30, han=13)
-    round_instance.add_deal_in_pao(3, 1, 0, hand_pao)
-    round_instance.add_deal_in(3, 1, hand)
-    ending_result = round_instance.conclude_round()
+    riichi_round.add_deal_in_pao(3, 1, 0, hand_pao)
+    riichi_round.add_deal_in(3, 1, hand)
+    ending_result = riichi_round.conclude_round()
 
     expected_ending_result = {
         "round_wind": Wind.EAST,
