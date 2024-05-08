@@ -46,11 +46,11 @@ from riichi_round_calc.riichi_types import TransactionType, Transaction
 def test_add_honba(
     transaction_type, hand, score_deltas, pao_target, expected_score_deltas
 ):
-    ron_transaction = Transaction(
+    transaction = Transaction(
         transaction_type=transaction_type,
         hand=hand,
         pao_target=pao_target,
         score_deltas=score_deltas,
     )
-    result = add_honba(ron_transaction, 3)
+    result = add_honba(transaction, 3)
     assert result.score_deltas == expected_score_deltas
