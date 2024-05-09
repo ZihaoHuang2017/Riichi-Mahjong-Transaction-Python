@@ -1,4 +1,4 @@
 dacite~=1.8.1
 pytest~=8.2.0
-jsons~=1.6.3
 ipython~=8.24.0
+jsons~=1.6.3
