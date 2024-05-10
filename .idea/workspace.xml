@@ -4,9 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="76caa3ac-1e91-472c-938a-9095a4bbc907" name="Changes" comment="move test to tests">
+    <list default="true" id="76caa3ac-1e91-472c-938a-9095a4bbc907" name="Changes" comment="further work on transformers">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/transformer.py" beforeDir="false" afterPath="$PROJECT_DIR$/transformer.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -162,7 +161,8 @@
       <workItem from="1715123089896" duration="317000" />
       <workItem from="1715123431857" duration="1342000" />
       <workItem from="1715142989329" duration="18728000" />
-      <workItem from="1715282512476" duration="7214000" />
+      <workItem from="1715282512476" duration="13582000" />
+      <workItem from="1715318837253" duration="4536000" />
     </task>
     <task id="LOCAL-00001" summary="further tamper with configs to support wsl and windows">
       <option name="closed" value="true" />
@@ -180,7 +180,15 @@
       <option name="project" value="LOCAL" />
       <updated>1715149175991</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="further work on transformers">
+      <option name="closed" value="true" />
+      <created>1715290425184</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1715290425184</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -200,12 +208,13 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="further tamper with configs to support wsl and windows" />
     <MESSAGE value="move test to tests" />
-    <option name="LAST_COMMIT_MESSAGE" value="move test to tests" />
+    <MESSAGE value="further work on transformers" />
+    <option name="LAST_COMMIT_MESSAGE" value="further work on transformers" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/Riichi_Mahjong_Transaction_Python$pytest_in_test.coverage" NAME="pytest in test Coverage Results" MODIFIED="1715123632535" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/test" />
     <SUITE FILE_PATH="coverage/Riichi_Mahjong_Transaction_Python$pytest_in_tests.coverage" NAME="pytest in tests Coverage Results" MODIFIED="1715207612739" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/Riichi_Mahjong_Transaction_Python$pytest_for_test_bruh_test_func.coverage" NAME="pytest for test_bruh.test_func Coverage Results" MODIFIED="1715145720881" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/Riichi_Mahjong_Transaction_Python$pytest_for_test_test_func.coverage" NAME="pytest for test.test_func Coverage Results" MODIFIED="1715288868818" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Riichi_Mahjong_Transaction_Python$pytest_for_test_test_func.coverage" NAME="pytest for test.test_func Coverage Results" MODIFIED="1715293234477" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>
