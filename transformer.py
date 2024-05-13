@@ -2,10 +2,11 @@ import ast
 import enum
 import os
 import sys
-import jsons
+import types
 from io import open
 
 import IPython
+import jsons
 from IPython.core.error import StdinNotImplementedError
 from IPython.core.magic import register_line_magic
 from IPython.core.magic_arguments import magic_arguments, argument, parse_argstring
@@ -31,6 +32,36 @@ class RewriteUnderscores(ast.NodeTransformer):
             return node
 
 
+def assert_recursive_depth(obj: any, ipython: IPython.InteractiveShell, max_depth: int, visited: list) -> bool:
+    if not max_depth:
+        return False
+    try:
+        ipython.ex(repr(obj))
+        return True
+    except Exception:
+        pass
+    if type(type(obj)) is enum.EnumMeta:
+        return True
+    if obj in visited:
+        return False
+    visited.append(obj)
+    if type(obj) in [list, tuple, set]:
+        for item in obj:
+            if not assert_recursive_depth(item, ipython, max_depth - 1, visited):
+                return False
+        return True
+    if type(obj) is dict:
+        for k, v in obj.items():
+            if not assert_recursive_depth(v, ipython, max_depth - 1, visited):
+                return False
+        return True
+    attrs = dir(obj)
+    for attr in attrs:
+        if not attr.startswith("_") and not callable(attr):
+            if not assert_recursive_depth(getattr(obj, attr), ipython, max_depth - 1, visited):
+                return False
+    return True
+
 def load_ipython_extension(ipython: IPython.InteractiveShell):
     @register_line_magic
     @magic_arguments()
@@ -44,6 +75,15 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
         the command 'history -f FILENAME' from the IPython Notebook
         interface will replace FILENAME even if it already exists *without*
         confirmation.
+        """,
+    )
+    @argument(
+        "-r",
+        dest="recursive_depth",
+        default=100,
+        help="""
+        RECURSIVE_DEPTH: the maximum number of levels allowed before the program
+        assumes that it contains an infinite loop. Default value is 100.
         """,
     )
     def transform_tests(parameter_s=""):
@@ -74,26 +114,31 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
         for session, line, (lin, lout) in histories:
             try:
                 parse_statement(
-                    import_statements, normal_statements, output_lines, line, lin, lout
+                    import_statements, normal_statements, output_lines, line, lin, lout, args.recursive_depth
                 )
             except (SyntaxError, NameError):
                 continue
-            except Exception as e:
-                import_statements.add("import pytest")
-                normal_statements.append(f"with pytest.raises({e.__class__.__name__}):")
-                normal_statements.append(" " * INDENT_SIZE + lin)
-                continue
+            # except Exception as e:
+            #     import_statements.add("import pytest")
+            #     normal_statements.append(f"with pytest.raises({e.__class__.__name__}):")
+            #     normal_statements.append(" " * INDENT_SIZE + lin)
+            #     continue
 
-        print(*import_statements, sep="\n", file=outfile)
+        for statement in import_statements:
+            lines = statement.split("\n")
+            for line in lines:
+                print(line, file=outfile)
         print("\n", file=outfile)
         print("def test_func():", file=outfile)
         for statement in normal_statements:
-            print(" " * INDENT_SIZE + statement, file=outfile)
+            lines = statement.split("\n")
+            for line in lines:
+                print(" " * INDENT_SIZE + line, file=outfile)
         if close_at_end:
             outfile.close()
 
     def parse_statement(
-        import_statements, normal_statements, output_lines, line, lin, lout
+        import_statements, normal_statements, output_lines, line, lin, lout, recursive_depth
     ):
         if lin.startswith("%"):  # magic methods
             return
@@ -116,26 +161,38 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
         elif type(type(obj_result)) is enum.EnumMeta:
             normal_statements.append(f"assert _{line} == {str(obj_result)}")
         elif type(obj_result) is type:
-            normal_statements.append(f"assert _{line} is {obj_result.__name__}")
+            class_name = obj_result.__name__
+            if is_legal_python_obj(class_name):
+                normal_statements.append(f"assert _{line} is {class_name}")
+            else:
+                normal_statements.append(f"assert _{line}.__name__ == \"{class_name}\"")
+
         else:
-            try:
-                ipython.ev(repr(obj_result))
+            obj_repr = repr(obj_result)
+            if is_legal_python_obj(obj_repr):
                 normal_statements.append(f"assert _{line} == {repr(obj_result)}")
-            except SyntaxError:
+                return
+            class_name = obj_result.__class__.__name__
+            if is_legal_python_obj(class_name):
                 normal_statements.append(
-                    f"assert type(_{line}) is {obj_result.__class__.__name__}"
+                    f"assert type(_{line}) is {class_name}"
                 )
-                try:
-                    serialised_obj = jsons.dump(obj_result)
-                    import_statements.add("import jsons")
-                    normal_statements.append(
-                        f"assert jsons.dump(_{line}) == {serialised_obj}"
-                    )
-                except Exception:  # 万策尽
-                    pass
+            else:
+                normal_statements.append(f"assert type(_{line}).__name__ == \"{class_name}\"")
+            if not assert_recursive_depth(obj_result, ipython, recursive_depth, []):
+                print(f"Infinite loop detected in {obj_result}, can only assert the type")
+                return
+            try:
+                serialised_obj = jsons.dump(obj_result)
+                import_statements.add("import jsons")
+                normal_statements.append(
+                    f"assert jsons.dump(_{line}) == {serialised_obj}"
+                )
+            except Exception:  # 万策尽
+                pass
 
     def revise_line_input(lin, output_lines):
-        # Undefined Behaviour if the user tries to invoke _ with len<3. Why would you want to do that?
+        # Undefined Behaviour if the user tries to invoke _ with len < 3. Why would you want to do that?
         one_underscore, two_underscores, three_underscores = (
             output_lines[-1],
             output_lines[-2],
@@ -147,3 +204,10 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
         ).visit(node)
         revised_statement = ast.unparse(revised_node)
         return revised_statement
+
+    def is_legal_python_obj(statement: str) -> bool:
+        try:
+            ipython.ev(statement)
+            return True
+        except Exception:
+            return False
