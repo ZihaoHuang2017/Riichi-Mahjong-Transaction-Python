@@ -32,7 +32,9 @@ class RewriteUnderscores(ast.NodeTransformer):
             return node
 
 
-def assert_recursive_depth(obj: any, ipython: IPython.InteractiveShell, max_depth: int, visited: list) -> bool:
+def assert_recursive_depth(
+    obj: any, ipython: IPython.InteractiveShell, max_depth: int, visited: list
+) -> bool:
     if not max_depth:
         return False
     try:
@@ -58,9 +60,12 @@ def assert_recursive_depth(obj: any, ipython: IPython.InteractiveShell, max_dept
     attrs = dir(obj)
     for attr in attrs:
         if not attr.startswith("_") and not callable(attr):
-            if not assert_recursive_depth(getattr(obj, attr), ipython, max_depth - 1, visited):
+            if not assert_recursive_depth(
+                getattr(obj, attr), ipython, max_depth - 1, visited
+            ):
                 return False
     return True
+
 
 def load_ipython_extension(ipython: IPython.InteractiveShell):
     @register_line_magic
@@ -114,7 +119,13 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
         for session, line, (lin, lout) in histories:
             try:
                 parse_statement(
-                    import_statements, normal_statements, output_lines, line, lin, lout, args.recursive_depth
+                    import_statements,
+                    normal_statements,
+                    output_lines,
+                    line,
+                    lin,
+                    lout,
+                    args.recursive_depth,
                 )
             except (SyntaxError, NameError):
                 continue
@@ -138,9 +149,15 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
             outfile.close()
 
     def parse_statement(
-        import_statements, normal_statements, output_lines, line, lin, lout, recursive_depth
+        import_statements,
+        normal_statements,
+        output_lines,
+        line,
+        lin,
+        lout,
+        recursive_depth,
     ):
-        if lin.startswith("%"):  # magic methods
+        if lin.startswith("%") or lin.endswith("?"):  # magic methods
             return
         if lin.startswith("from ") or lin.startswith("import "):
             import_statements.add(lin)
@@ -165,7 +182,7 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
             if is_legal_python_obj(class_name):
                 normal_statements.append(f"assert _{line} is {class_name}")
             else:
-                normal_statements.append(f"assert _{line}.__name__ == \"{class_name}\"")
+                normal_statements.append(f'assert _{line}.__name__ == "{class_name}"')
 
         else:
             obj_repr = repr(obj_result)
@@ -174,13 +191,15 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
                 return
             class_name = obj_result.__class__.__name__
             if is_legal_python_obj(class_name):
-                normal_statements.append(
-                    f"assert type(_{line}) is {class_name}"
-                )
+                normal_statements.append(f"assert type(_{line}) is {class_name}")
             else:
-                normal_statements.append(f"assert type(_{line}).__name__ == \"{class_name}\"")
+                normal_statements.append(
+                    f'assert type(_{line}).__name__ == "{class_name}"'
+                )
             if not assert_recursive_depth(obj_result, ipython, recursive_depth, []):
-                print(f"Infinite loop detected in {obj_result}, can only assert the type")
+                print(
+                    f"Infinite loop detected in {obj_result}, can only assert the type"
+                )
                 return
             try:
                 serialised_obj = jsons.dump(obj_result)
