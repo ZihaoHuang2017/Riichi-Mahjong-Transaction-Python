@@ -2,11 +2,10 @@ import ast
 import enum
 import os
 import sys
-import types
+import typing
 from io import open
 
 import IPython
-import jsons
 from IPython.core.error import StdinNotImplementedError
 from IPython.core.magic import register_line_magic
 from IPython.core.magic_arguments import magic_arguments, argument, parse_argstring
@@ -35,7 +34,7 @@ class RewriteUnderscores(ast.NodeTransformer):
 def assert_recursive_depth(
     obj: any, ipython: IPython.InteractiveShell, visited: list
 ) -> bool:
-    if is_legal_python_obj(repr(obj), ipython):
+    if is_legal_python_obj(repr(obj), obj, ipython):
         return True
     if type(type(obj)) is enum.EnumMeta:
         return True
@@ -87,7 +86,7 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
     @argument(
         "-l",
         dest="long",
-        default=False,
+        default=True,
         help="""
         LONG: If set to True, then the program will try to expand the test case into 
         individual assertions as fallback; if False, then a dict representation will be used.
@@ -135,12 +134,22 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
                 output_lines.append(line)
                 var_name = f"_{line}"
                 normal_statements.append(f"{var_name} = {revised_statement}")
-                parse_statement_long(
-                    import_statements,
-                    normal_statements,
-                    obj_result,
-                    var_name,
-                )
+                if args.long:
+                    parse_statement_long(normal_statements, obj_result, var_name, {})
+                else:
+                    # if not assert_recursive_depth(obj, ipython, []):
+                    #     print(
+                    #         f"Potential infinite loop detected in {obj}, can only assert the type"
+                    #     )
+                    # try:
+                    #     serialised_obj = jsons.dump(obj)
+                    #     import_statements.add("import jsons")
+                    #     normal_statements.append(
+                    #         f"assert jsons.dump({var_name}) == {serialised_obj}"
+                    #     )
+                    # except Exception as e:  # 万策尽
+                    #     print(f"Error when serialising {obj}, error {e}")
+                    pass
             except (SyntaxError, NameError):
                 continue
             except Exception as e:
@@ -163,20 +172,19 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
             outfile.close()
 
     def parse_statement_long(
-        import_statements,
-        normal_statements,
-        obj: any,
-        var_name: str,
+        normal_statements, obj: any, var_name: str, visited: dict[int, str]
     ):
         if obj is True:
             normal_statements.append(f"assert {var_name}")
         elif obj is False:
             normal_statements.append(f"assert not {var_name}")
+        elif obj is None:
+            normal_statements.append(f"assert {var_name} is None")
         elif type(type(obj)) is enum.EnumMeta:
             normal_statements.append(f"assert {var_name} == {str(obj)}")
         elif type(obj) is type:
             class_name = obj.__name__
-            if is_legal_python_obj(class_name, ipython):
+            if is_legal_python_obj(class_name, obj, ipython):
                 normal_statements.append(f"assert {var_name} is {class_name}")
             else:
                 normal_statements.append(
@@ -184,30 +192,39 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
                 )
         else:
             obj_repr = repr(obj)
-            if is_legal_python_obj(obj_repr, ipython):
+            if is_legal_python_obj(obj_repr, obj, ipython):
                 normal_statements.append(f"assert {var_name} == {repr(obj)}")
                 return
+            if id(obj) in visited:
+                normal_statements.append(f"assert {var_name} == {visited[id(obj)]}")
+                return
+            visited[id(obj)] = var_name
             class_name = obj.__class__.__name__
-            if is_legal_python_obj(class_name, ipython):
+            if is_legal_python_obj(class_name, obj.__class__, ipython):
                 normal_statements.append(f"assert type({var_name}) is {class_name}")
             else:
                 normal_statements.append(
                     f'assert type({var_name}).__name__ == "{class_name}"'
                 )
-            if not assert_recursive_depth(obj, ipython, []):
-                print(
-                    f"Potential infinite loop detected in {obj}, can only assert the type"
-                )
-                return
-            try:
-                serialised_obj = jsons.dump(obj)
-                import_statements.add("import jsons")
-                normal_statements.append(
-                    f"assert jsons.dump({var_name}) == {serialised_obj}"
-                )
-            except Exception as e:  # 万策尽
-                print(f"Error when serialising {obj}, error {e}")
-                pass
+            if isinstance(obj, typing.Sequence):
+                for idx, val in enumerate(obj):
+                    parse_statement_long(
+                        normal_statements, val, f"{var_name}[{idx}]", visited
+                    )
+            elif type(obj) is dict:
+                for key, value in obj.items():
+                    parse_statement_long(
+                        normal_statements, value, f'{var_name}["{key}"]', visited
+                    )
+            else:
+                attrs = dir(obj)
+                for attr in attrs:
+                    if not attr.startswith("_") and not callable(attr):
+                        value = getattr(obj, attr)
+                        if type(value).__name__ != "function":
+                            parse_statement_long(
+                                normal_statements, value, f"{var_name}.{attr}", visited
+                            )
 
     def revise_line_input(lin, output_lines):
         # Undefined Behaviour if the user tries to invoke _ with len < 3. Why would you want to do that?
@@ -224,9 +241,8 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
         return revised_statement
 
 
-def is_legal_python_obj(statement: str, ipython: IPython.InteractiveShell) -> bool:
+def is_legal_python_obj(statement: str, obj: any, ipython: IPython.InteractiveShell) -> bool:
     try:
-        ipython.ev(statement)
-        return True
+        return obj == ipython.ev(statement)
     except (SyntaxError, NameError):
         return False
