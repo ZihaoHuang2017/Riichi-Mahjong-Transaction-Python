@@ -31,6 +31,21 @@ class RewriteUnderscores(ast.NodeTransformer):
             return node
 
 
+def revise_line_input(lin, output_lines):
+    # Undefined Behaviour if the user tries to invoke _ with len < 3. Why would you want to do that?
+    one_underscore, two_underscores, three_underscores = (
+        output_lines[-1],
+        output_lines[-2],
+        output_lines[-3],
+    )
+    node = ast.parse(lin)
+    revised_node = RewriteUnderscores(
+        one_underscore, two_underscores, three_underscores
+    ).visit(node)
+    revised_statement = ast.unparse(revised_node)
+    return revised_statement
+
+
 def assert_recursive_depth(
     obj: any, ipython: IPython.InteractiveShell, visited: list
 ) -> bool:
@@ -89,7 +104,7 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
         default=True,
         help="""
         LONG: If set to True, then the program will try to expand the test case into 
-        individual assertions as fallback; if False, then a dict representation will be used.
+        individual assertions; if False, then a dict representation will be used.
         """,
     )
     def transform_tests(parameter_s=""):
@@ -219,26 +234,10 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
             else:
                 attrs = dir(obj)
                 for attr in attrs:
-                    if not attr.startswith("_") and not callable(attr):
+                    if not attr.startswith("_"):
                         value = getattr(obj, attr)
-                        if type(value).__name__ != "function":
-                            parse_statement_long(
-                                normal_statements, value, f"{var_name}.{attr}", visited
-                            )
-
-    def revise_line_input(lin, output_lines):
-        # Undefined Behaviour if the user tries to invoke _ with len < 3. Why would you want to do that?
-        one_underscore, two_underscores, three_underscores = (
-            output_lines[-1],
-            output_lines[-2],
-            output_lines[-3],
-        )
-        node = ast.parse(lin)
-        revised_node = RewriteUnderscores(
-            one_underscore, two_underscores, three_underscores
-        ).visit(node)
-        revised_statement = ast.unparse(revised_node)
-        return revised_statement
+                        if not callable(value):
+                            parse_statement_long(normal_statements, value, f"{var_name}[{attr}]", visited)
 
 
 def is_legal_python_obj(statement: str, obj: any, ipython: IPython.InteractiveShell) -> bool:
