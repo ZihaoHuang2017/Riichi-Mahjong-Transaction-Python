@@ -1,4 +1,5 @@
 import ast
+import dataclasses
 import enum
 import os
 import sys
@@ -101,7 +102,7 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
     @argument(
         "-l",
         dest="long",
-        default=False,
+        action="store_true",
         help="""
         LONG: If set to True, then the program will try to expand the test case into 
         individual assertions; if False, then a dict representation will be used.
@@ -140,7 +141,7 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
                     import_statements.add(lin)
                     continue
                 revised_statement = revise_line_input(lin, output_lines)
-                if not lout:
+                if lout is None:
                     ipython.ex(revised_statement)
                     normal_statements.append(revised_statement)
                     # not the most ideal way if we have some weird crap going on (remote apis???)
@@ -158,28 +159,15 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
                         obj_result, var_name, {}, True
                     )
                     normal_statements.extend(assertions)
-                    # if not assert_recursive_depth(obj, ipython, []):
-                    #     print(
-                    #         f"Potential infinite loop detected in {obj}, can only assert the type"
-                    #     )
-                    # try:
-                    #     serialised_obj = jsons.dump(obj)
-                    #     import_statements.add("import jsons")
-                    #     normal_statements.append(
-                    #         f"assert jsons.dump({var_name}) == {serialised_obj}"
-                    #     )
-                    # except Exception as e:  # 万策尽
-                    #     print(f"Error when serialising {obj}, error {e}")
                     pass
             except (SyntaxError, NameError) as e:
-                # raise e
                 continue
             except Exception as e:
                 import_statements.add("import pytest")
                 normal_statements.append(f"with pytest.raises({e.__class__.__name__}):")
                 normal_statements.append(" " * INDENT_SIZE + lin)
                 continue
-
+        print(*normal_statements, sep="\n")
         for statement in import_statements:
             lines = statement.split("\n")
             for line in lines:
@@ -274,19 +262,31 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
             else:
                 repr_str = f'[{", ".join(reprs)}]'
             if propagation:
-                overall_assertions.append(f"assert {var_name} == {repr_str}")
+                overall_assertions.insert(0, f"assert {var_name} == {repr_str}")
             return repr_str, overall_assertions
         elif type(obj) is dict:
             reprs, overall_assertions = [], []
-            for key, value in obj.items():
+            for field, value in obj.items():
                 representation, assertions = parse_statement_short(
-                    value, f'{var_name}["{key}"]', visited, False
+                    value, f'{var_name}["{field}"]', visited, False
                 )
-                reprs.append(f'"{key}": {representation}')
+                reprs.append(f'"{field}": {representation}')
                 overall_assertions.extend(assertions)
             repr_str = "{" + ", ".join(reprs) + "}"
             if propagation:
-                overall_assertions.append(f"assert {var_name} == {repr_str}")
+                overall_assertions.insert(0, f"assert {var_name} == {repr_str}")
+            return repr_str, overall_assertions
+        elif dataclasses.is_dataclass(obj):
+            reprs, overall_assertions = [], []
+            for field in dataclasses.fields(obj):
+                representation, assertions = parse_statement_short(
+                    getattr(obj, field.name), f"{var_name}.{field.name}", visited, False
+                )
+                reprs.append(f'"{field.name}": {representation}')
+                overall_assertions.extend(assertions)
+            repr_str = "{" + ", ".join(reprs) + "}"
+            if propagation:
+                overall_assertions.insert(0, f"assert {var_name} == {repr_str}")
             return repr_str, overall_assertions
         else:
             overall_assertions = []

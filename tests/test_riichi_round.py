@@ -34,7 +34,7 @@ def test_normal_deal_in():
         "transactions": [
             {
                 "transaction_type": TransactionType.DEAL_IN,
-                "hand": {"fu": 30, "han": 1},
+                "hand": Hand(fu=30, han=1),
                 "score_deltas": [-1000, 0, 1000, 0],
             },
         ],
@@ -75,7 +75,7 @@ def test_normal_deal_in_30fu_1han_2_to_0():
         "transactions": [
             {
                 "transaction_type": TransactionType.DEAL_IN,
-                "hand": {"fu": 30, "han": 1},
+                "hand": Hand(fu=30, han=1),
                 "score_deltas": [1500, 0, -1500, 0],
             },
         ],
@@ -117,7 +117,7 @@ def test_deal_in_30fu_2han_1_to_0_0_1_riichi():
         "transactions": [
             {
                 "transaction_type": TransactionType.DEAL_IN,
-                "hand": {"fu": 30, "han": 2},
+                "hand": Hand(fu=30, han=2),
                 "score_deltas": [2900, -2900, 0, 0],
             },
         ],
@@ -161,12 +161,12 @@ def test_double_ron():
             {
                 "transaction_type": TransactionType.DEAL_IN,
                 "score_deltas": [8000, 0, -8000, 0],
-                "hand": {"fu": 30, "han": 5},
+                "hand": Hand(fu=30, han=5),
             },
             {
                 "transaction_type": TransactionType.DEAL_IN,
                 "score_deltas": [0, 12000, -12000, 0],
-                "hand": {"fu": 30, "han": 6},
+                "hand": Hand(fu=30, han=6),
             },
         ],
     }
@@ -210,12 +210,12 @@ def test_double_ron_with_honba_and_riichi():
             {
                 "transaction_type": TransactionType.DEAL_IN,
                 "score_deltas": [0, 0, 12000, -12000],
-                "hand": {"fu": 30, "han": 6},
+                "hand": Hand(fu=30, han=6),
             },
             {
                 "transaction_type": TransactionType.DEAL_IN,
                 "score_deltas": [0, 2300, 0, -2300],
-                "hand": {"fu": 30, "han": 2},
+                "hand": Hand(fu=30, han=2),
             },
         ],
     }
@@ -258,12 +258,12 @@ def test_double_ron_with_honba_and_riichi_with_a_dealer_win():
         "transactions": [
             {
                 "transaction_type": TransactionType.DEAL_IN,
-                "hand": {"fu": 30, "han": 6},
+                "hand": Hand(fu=30, han=6),
                 "score_deltas": [0, -18000, 0, 18000],
             },
             {
                 "transaction_type": TransactionType.DEAL_IN,
-                "hand": {"fu": 30, "han": 2},
+                "hand": Hand(fu=30, han=2),
                 "score_deltas": [0, -2300, 2300, 0],
             },
         ],
@@ -307,12 +307,12 @@ def test_order_agnostic_for_double_ron():
         "transactions": [
             {
                 "transaction_type": TransactionType.DEAL_IN,
-                "hand": {"fu": 30, "han": 2},
+                "hand": Hand(fu=30, han=2),
                 "score_deltas": [0, 2300, 0, -2300],
             },
             {
                 "transaction_type": TransactionType.DEAL_IN,
-                "hand": {"fu": 30, "han": 6},
+                "hand": Hand(fu=30, han=6),
                 "score_deltas": [0, 0, 12000, -12000],
             },
         ],
@@ -353,7 +353,7 @@ def test_tsumo_30fu_3han_by_dealer():
         "transactions": [
             {
                 "transaction_type": TransactionType.SELF_DRAW,
-                "hand": {"fu": 30, "han": 3},
+                "hand": Hand(fu=30, han=3),
                 "score_deltas": [-2000, 6000, -2000, -2000],
             },
         ],
@@ -394,7 +394,7 @@ def test_tsumo_30fu_3han_by_non_dealer():
         "transactions": [
             {
                 "transaction_type": TransactionType.SELF_DRAW,
-                "hand": {"fu": 30, "han": 3},
+                "hand": Hand(fu=30, han=3),
                 "score_deltas": [-1000, -2000, -1000, 4000],
             },
         ],
@@ -646,7 +646,7 @@ def test_south_4_hanchan_not_end_with_p0_win_but_no_one_at_30000():
             },
         )
     )
-    hand = from_dict(Hand, {"fu": 30, "han": 1})
+    hand = Hand(fu=30, han=1)
     round_s4.add_self_draw(0, hand)
     ending_result_s4 = round_s4.conclude_round()
 
@@ -677,7 +677,7 @@ def test_south_4_hanchan_end_with_p3_win_less_than_30000_and_1st():
             },
         )
     )
-    hand = from_dict(Hand, {"fu": 30, "han": 1})
+    hand = Hand(fu=30, han=1)
     riichi_round.add_deal_in(3, 2, hand)
     ending_result = riichi_round.conclude_round()
 
@@ -708,7 +708,7 @@ def test_south_4_hanchan_end_with_p3_win_at_30000_and_1st():
             },
         )
     )
-    hand = from_dict(Hand, {"fu": 30, "han": 2})
+    hand = Hand(fu=30, han=2)
     riichi_round.add_self_draw(3, hand)
     ending_result = riichi_round.conclude_round()
 
@@ -739,7 +739,7 @@ def test_south_4_hanchan_end_with_p3_tenpai_at_30000_and_1st():
             },
         )
     )
-    hand = from_dict(Hand, {"fu": 30, "han": 2})
+    hand = Hand(fu=30, han=2)
     round_s3.add_deal_in(3, 2, hand)
     ending_result_s3 = round_s3.conclude_round()
 
