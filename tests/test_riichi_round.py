@@ -1,3 +1,4 @@
+from riichi_round_calc.riichi_round import RiichiRound, generate_overall_score_deltas
 from riichi_round_calc.riichi_types import (
     Wind,
     TransactionType,
@@ -5,9 +6,7 @@ from riichi_round_calc.riichi_types import (
     Hand,
     ConcludedRound,
 )
-from riichi_round_calc.riichi_round import RiichiRound, generate_overall_score_deltas
 from riichi_round_calc.round_end import generate_next_round, is_game_end
-from dacite import from_dict
 
 
 def test_normal_deal_in():
@@ -636,8 +635,7 @@ def test_south_4_hanchan_end_with_p0_win_at_30000():
 
 def test_south_4_hanchan_not_end_with_p0_win_but_no_one_at_30000():
     round_s4 = RiichiRound(
-        from_dict(
-            NewRound,
+        NewRound.from_dict(
             {
                 "round_wind": Wind.SOUTH,
                 "round_number": 4,
@@ -667,8 +665,7 @@ def test_south_4_hanchan_not_end_with_p0_win_but_no_one_at_30000():
 
 def test_south_4_hanchan_end_with_p3_win_less_than_30000_and_1st():
     riichi_round = RiichiRound(
-        from_dict(
-            NewRound,
+        NewRound.from_dict(
             {
                 "round_wind": Wind.SOUTH,
                 "round_number": 4,
@@ -698,8 +695,7 @@ def test_south_4_hanchan_end_with_p3_win_less_than_30000_and_1st():
 
 def test_south_4_hanchan_end_with_p3_win_at_30000_and_1st():
     riichi_round = RiichiRound(
-        from_dict(
-            NewRound,
+        NewRound.from_dict(
             {
                 "round_wind": Wind.SOUTH,
                 "round_number": 4,
@@ -729,8 +725,7 @@ def test_south_4_hanchan_end_with_p3_win_at_30000_and_1st():
 
 def test_south_4_hanchan_end_with_p3_tenpai_at_30000_and_1st():
     round_s3 = RiichiRound(
-        from_dict(
-            NewRound,
+        NewRound.from_dict(
             {
                 "round_wind": Wind.SOUTH,
                 "round_number": 3,
@@ -771,8 +766,7 @@ def test_south_4_hanchan_end_with_p3_tenpai_at_30000_and_1st():
 
 def test_south_4_hanchan_does_not_end_from_p0_score_gt_p3_score_gt_30000():
     riichi_round = RiichiRound(
-        from_dict(
-            NewRound,
+        NewRound.from_dict(
             {
                 "round_wind": Wind.SOUTH,
                 "round_number": 4,
@@ -804,8 +798,7 @@ def test_south_4_hanchan_does_not_end_from_p0_score_gt_p3_score_gt_30000():
 
 def test_south_4_hanchan_does_not_end_from_p3_not_1st_by_position():
     riichi_round = RiichiRound(
-        from_dict(
-            NewRound,
+        NewRound.from_dict(
             {
                 "round_wind": Wind.SOUTH,
                 "round_number": 4,
@@ -837,8 +830,7 @@ def test_south_4_hanchan_does_not_end_from_p3_not_1st_by_position():
 
 def test_south_4_hanchan_end_with_p3_no_ten_and_p0_at_30000():
     round_s3 = RiichiRound(
-        from_dict(
-            NewRound,
+        NewRound.from_dict(
             {
                 "round_wind": Wind.SOUTH,
                 "round_number": 3,
@@ -890,8 +882,7 @@ def test_south_4_hanchan_end_with_p3_no_ten_and_p0_at_30000():
 
 def test_south_4_hanchan_does_not_end_with_p3_no_ten_and_no_one_at_30000():
     riichi_round = RiichiRound(
-        from_dict(
-            NewRound,
+        NewRound.from_dict(
             {
                 "round_wind": Wind.SOUTH,
                 "round_number": 4,
@@ -934,8 +925,7 @@ def test_hanchan_end_next_round_north_no_one_30000():
     next_round = generate_next_round(ending_result)
 
     assert generate_overall_score_deltas(ending_result) == expected_overall_score_delta
-    assert next_round == from_dict(
-        NewRound,
+    assert next_round == NewRound.from_dict(
         {
             "round_wind": Wind.NORTH,
             "round_number": 1,
@@ -963,8 +953,7 @@ def test_hanchan_not_end_p1_at_0():
     next_round = generate_next_round(ending_result)
 
     assert generate_overall_score_deltas(ending_result) == expected_overall_score_delta
-    assert next_round == from_dict(
-        NewRound,
+    assert next_round == NewRound.from_dict(
         {
             "round_wind": Wind.EAST,
             "round_number": 4,
@@ -992,8 +981,7 @@ def test_hanchan_end_p1_less_than_0():
     next_round = generate_next_round(ending_result)
 
     assert generate_overall_score_deltas(ending_result) == expected_overall_score_delta
-    assert next_round == from_dict(
-        NewRound,
+    assert next_round == NewRound.from_dict(
         {
             "round_wind": Wind.EAST,
             "round_number": 4,
@@ -1034,8 +1022,7 @@ def test_non_dealer_nagashi_mangan():
 
     assert ending_result == ConcludedRound.from_dict(expected_ending_result)
     assert generate_overall_score_deltas(ending_result) == [-4000, -2000, 8000, -2000]
-    assert generate_next_round(ending_result) == from_dict(
-        NewRound,
+    assert generate_next_round(ending_result) == NewRound.from_dict(
         {
             "round_wind": Wind.EAST,
             "round_number": 2,
@@ -1075,8 +1062,7 @@ def test_dealer_nagashi_mangan():
 
     assert ending_result == ConcludedRound.from_dict(expected_ending_result)
     assert generate_overall_score_deltas(ending_result) == [12000, -4000, -4000, -4000]
-    assert generate_next_round(ending_result) == from_dict(
-        NewRound,
+    assert generate_next_round(ending_result) == NewRound.from_dict(
         {
             "round_wind": Wind.EAST,
             "round_number": 2,
@@ -1116,8 +1102,7 @@ def test_non_dealer_nagashi_mangan_dealer_tenpai():
 
     assert ending_result == ConcludedRound.from_dict(expected_ending_result)
     assert generate_overall_score_deltas(ending_result) == [-4000, -2000, 8000, -2000]
-    assert generate_next_round(ending_result) == from_dict(
-        NewRound,
+    assert generate_next_round(ending_result) == NewRound.from_dict(
         {
             "round_wind": Wind.EAST,
             "round_number": 1,
@@ -1157,8 +1142,7 @@ def test_non_dealer_nagashi_mangan_previous_riichi_sticks():
 
     assert ending_result == ConcludedRound.from_dict(expected_ending_result)
     assert generate_overall_score_deltas(ending_result) == [-4000, -2000, -2000, 8000]
-    assert generate_next_round(ending_result) == from_dict(
-        NewRound,
+    assert generate_next_round(ending_result) == NewRound.from_dict(
         {
             "round_wind": Wind.EAST,
             "round_number": 2,
@@ -1199,8 +1183,7 @@ def test_non_dealer_nagashi_mangan_p1_p2_riichi():
 
     assert ending_result == ConcludedRound.from_dict(expected_ending_result)
     assert generate_overall_score_deltas(ending_result) == [-4000, -3000, -3000, 8000]
-    assert generate_next_round(ending_result) == from_dict(
-        NewRound,
+    assert generate_next_round(ending_result) == NewRound.from_dict(
         {
             "round_wind": Wind.EAST,
             "round_number": 2,
@@ -1250,8 +1233,7 @@ def test_three_nagashi_mangan():
 
     assert ending_result == ConcludedRound.from_dict(expected_ending_result)
     assert generate_overall_score_deltas(ending_result) == [-12000, 4000, 4000, 4000]
-    assert generate_next_round(ending_result) == from_dict(
-        NewRound,
+    assert generate_next_round(ending_result) == NewRound.from_dict(
         {
             "round_wind": Wind.EAST,
             "round_number": 2,
@@ -1338,8 +1320,7 @@ def test_pao_tsumo_yakuman():
         -16100,
         96300,
     ]
-    assert generate_next_round(ending_result) == from_dict(
-        NewRound,
+    assert generate_next_round(ending_result) == NewRound.from_dict(
         {
             "round_wind": Wind.EAST,
             "round_number": 4,
@@ -1388,8 +1369,7 @@ def test_pao_deal_in_two_yakuman():
 
     assert ending_result == ConcludedRound.from_dict(expected_ending_result)
     assert generate_overall_score_deltas(ending_result) == [-24000, -72300, 0, 96300]
-    assert generate_next_round(ending_result) == from_dict(
-        NewRound,
+    assert generate_next_round(ending_result) == NewRound.from_dict(
         {
             "round_wind": Wind.EAST,
             "round_number": 4,

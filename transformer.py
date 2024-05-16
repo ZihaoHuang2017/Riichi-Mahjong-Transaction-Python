@@ -164,7 +164,7 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
                 continue
             except Exception as e:
                 import_statements.add("import pytest")
-                normal_statements.append(f"with pytest.raises({e.__class__.__name__}):")
+                normal_statements.append(f"with pytest.raises({type(e).__name__}):")
                 normal_statements.append(" " * INDENT_SIZE + lin)
                 continue
         print(*normal_statements, sep="\n")
@@ -204,13 +204,8 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
             return [f"assert {var_name} == {repr(obj)}"]
         if id(obj) in visited:
             return [f"assert {var_name} == {visited[id(obj)]}"]
-        result = []
         visited[id(obj)] = var_name
-        class_name = obj.__class__.__name__
-        if is_legal_python_obj(class_name, obj.__class__, ipython):
-            result.append(f"assert type({var_name}) is {class_name}")
-        else:
-            result.append(f'assert type({var_name}).__name__ == "{class_name}"')
+        result = [get_type_assertion(obj, var_name)]
         if isinstance(obj, typing.Sequence):
             for idx, val in enumerate(obj):
                 result.extend(parse_statement_long(val, f"{var_name}[{idx}]", visited))
@@ -289,14 +284,7 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
                 overall_assertions.insert(0, f"assert {var_name} == {repr_str}")
             return repr_str, overall_assertions
         else:
-            overall_assertions = []
-            class_name = obj.__class__.__name__
-            if is_legal_python_obj(class_name, obj.__class__, ipython):
-                overall_assertions.append(f"assert type({var_name}) is {class_name}")
-            else:
-                overall_assertions.append(
-                    f'assert type({var_name}).__name__ == "{class_name}"'
-                )
+            overall_assertions = [get_type_assertion(obj, var_name)]
             attrs = dir(obj)
             for attr in attrs:
                 if not attr.startswith("_"):
@@ -307,6 +295,13 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
                         )
                         overall_assertions.extend(assertions)
             return var_name, overall_assertions
+
+    def get_type_assertion(obj, var_name) -> str:
+        class_name = type(obj).__name__
+        if is_legal_python_obj(class_name, type(obj), ipython):
+            return f"assert type({var_name}) is {class_name}"
+        else:
+            return f'assert type({var_name}).__name__ == "{class_name}"'
 
 
 def is_legal_python_obj(
