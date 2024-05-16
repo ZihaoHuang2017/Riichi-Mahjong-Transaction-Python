@@ -101,7 +101,7 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
     @argument(
         "-l",
         dest="long",
-        default=True,
+        default=False,
         help="""
         LONG: If set to True, then the program will try to expand the test case into 
         individual assertions; if False, then a dict representation will be used.
@@ -150,8 +150,14 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
                 var_name = f"_{line}"
                 normal_statements.append(f"{var_name} = {revised_statement}")
                 if args.long:
-                    parse_statement_long(normal_statements, obj_result, var_name, {})
+                    normal_statements.extend(
+                        parse_statement_long(obj_result, var_name, {})
+                    )
                 else:
+                    representation, assertions = parse_statement_short(
+                        obj_result, var_name, {}, True
+                    )
+                    normal_statements.extend(assertions)
                     # if not assert_recursive_depth(obj, ipython, []):
                     #     print(
                     #         f"Potential infinite loop detected in {obj}, can only assert the type"
@@ -165,7 +171,8 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
                     # except Exception as e:  # 万策尽
                     #     print(f"Error when serialising {obj}, error {e}")
                     pass
-            except (SyntaxError, NameError):
+            except (SyntaxError, NameError) as e:
+                # raise e
                 continue
             except Exception as e:
                 import_statements.add("import pytest")
@@ -187,60 +194,124 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
             outfile.close()
 
     def parse_statement_long(
-        normal_statements, obj: any, var_name: str, visited: dict[int, str]
-    ):
+        obj: any, var_name: str, visited: dict[int, str]
+    ) -> list[str]:
         if obj is True:
-            normal_statements.append(f"assert {var_name}")
-        elif obj is False:
-            normal_statements.append(f"assert not {var_name}")
-        elif obj is None:
-            normal_statements.append(f"assert {var_name} is None")
-        elif type(type(obj)) is enum.EnumMeta:
-            normal_statements.append(f"assert {var_name} == {str(obj)}")
-        elif type(obj) is type:
+            return [f"assert {var_name}"]
+        if obj is False:
+            return [f"assert not {var_name}"]
+        if obj is None:
+            return [f"assert {var_name} is None"]
+        if type(type(obj)) is enum.EnumMeta and is_legal_python_obj(
+            type(obj).__name__, type(obj), ipython
+        ):
+            return [f"assert {var_name} == {str(obj)}"]
+        if type(obj) is type:
             class_name = obj.__name__
             if is_legal_python_obj(class_name, obj, ipython):
-                normal_statements.append(f"assert {var_name} is {class_name}")
+                return [f"assert {var_name} is {class_name}"]
             else:
-                normal_statements.append(
-                    f'assert {var_name}.__name__ == "{class_name}"'
+                return [f'assert {var_name}.__name__ == "{class_name}"']
+        if is_legal_python_obj(repr(obj), obj, ipython):
+            return [f"assert {var_name} == {repr(obj)}"]
+        if id(obj) in visited:
+            return [f"assert {var_name} == {visited[id(obj)]}"]
+        result = []
+        visited[id(obj)] = var_name
+        class_name = obj.__class__.__name__
+        if is_legal_python_obj(class_name, obj.__class__, ipython):
+            result.append(f"assert type({var_name}) is {class_name}")
+        else:
+            result.append(f'assert type({var_name}).__name__ == "{class_name}"')
+        if isinstance(obj, typing.Sequence):
+            for idx, val in enumerate(obj):
+                result.extend(parse_statement_long(val, f"{var_name}[{idx}]", visited))
+        elif type(obj) is dict:
+            for key, value in obj.items():
+                result.extend(
+                    parse_statement_long(value, f'{var_name}["{key}"]', visited)
                 )
         else:
-            obj_repr = repr(obj)
-            if is_legal_python_obj(obj_repr, obj, ipython):
-                normal_statements.append(f"assert {var_name} == {repr(obj)}")
-                return
-            if id(obj) in visited:
-                normal_statements.append(f"assert {var_name} == {visited[id(obj)]}")
-                return
-            visited[id(obj)] = var_name
+            attrs = dir(obj)
+            for attr in attrs:
+                if not attr.startswith("_"):
+                    value = getattr(obj, attr)
+                    if not callable(value):
+                        result.extend(
+                            parse_statement_long(value, f"{var_name}.{attr}", visited)
+                        )
+        return result
+
+    def parse_statement_short(
+        obj: any, var_name: str, visited: dict[int, str], propagation: bool
+    ) -> tuple[str, list[str]]:
+        # readable-repr, assertions
+        if type(type(obj)) is enum.EnumMeta and is_legal_python_obj(
+            type(obj).__name__, type(obj), ipython
+        ):
+            if propagation:
+                return str(obj), [f"assert {var_name} == {str(obj)}"]
+            return str(obj), []
+        if is_legal_python_obj(repr(obj), obj, ipython):
+            if propagation:
+                return repr(obj), parse_statement_long(
+                    obj, var_name, visited
+                )  # to be expanded
+            return repr(obj), []
+        if id(obj) in visited:
+            return var_name, [f"assert {var_name} == {visited[id(obj)]}"]
+        visited[id(obj)] = var_name
+        if isinstance(obj, typing.Sequence):
+            reprs, overall_assertions = [], []
+            for idx, val in enumerate(obj):
+                representation, assertions = parse_statement_short(
+                    val, f"{var_name}[{idx}]", visited, False
+                )
+                reprs.append(representation)
+                overall_assertions.extend(assertions)
+            if type(obj) is tuple:
+                repr_str = f'({", ".join(reprs)})'
+            else:
+                repr_str = f'[{", ".join(reprs)}]'
+            if propagation:
+                overall_assertions.append(f"assert {var_name} == {repr_str}")
+            return repr_str, overall_assertions
+        elif type(obj) is dict:
+            reprs, overall_assertions = [], []
+            for key, value in obj.items():
+                representation, assertions = parse_statement_short(
+                    value, f'{var_name}["{key}"]', visited, False
+                )
+                reprs.append(f'"{key}": {representation}')
+                overall_assertions.extend(assertions)
+            repr_str = "{" + ", ".join(reprs) + "}"
+            if propagation:
+                overall_assertions.append(f"assert {var_name} == {repr_str}")
+            return repr_str, overall_assertions
+        else:
+            overall_assertions = []
             class_name = obj.__class__.__name__
             if is_legal_python_obj(class_name, obj.__class__, ipython):
-                normal_statements.append(f"assert type({var_name}) is {class_name}")
+                overall_assertions.append(f"assert type({var_name}) is {class_name}")
             else:
-                normal_statements.append(
+                overall_assertions.append(
                     f'assert type({var_name}).__name__ == "{class_name}"'
                 )
-            if isinstance(obj, typing.Sequence):
-                for idx, val in enumerate(obj):
-                    parse_statement_long(
-                        normal_statements, val, f"{var_name}[{idx}]", visited
-                    )
-            elif type(obj) is dict:
-                for key, value in obj.items():
-                    parse_statement_long(
-                        normal_statements, value, f'{var_name}["{key}"]', visited
-                    )
-            else:
-                attrs = dir(obj)
-                for attr in attrs:
-                    if not attr.startswith("_"):
-                        value = getattr(obj, attr)
-                        if not callable(value):
-                            parse_statement_long(normal_statements, value, f"{var_name}[{attr}]", visited)
+            attrs = dir(obj)
+            for attr in attrs:
+                if not attr.startswith("_"):
+                    value = getattr(obj, attr)
+                    if not callable(value):
+                        _, assertions = parse_statement_short(
+                            value, f"{var_name}.{attr}", visited, True
+                        )
+                        overall_assertions.extend(assertions)
+            return var_name, overall_assertions
 
 
-def is_legal_python_obj(statement: str, obj: any, ipython: IPython.InteractiveShell) -> bool:
+def is_legal_python_obj(
+    statement: str, obj: any, ipython: IPython.InteractiveShell
+) -> bool:
     try:
         return obj == ipython.ev(statement)
     except (SyntaxError, NameError):
