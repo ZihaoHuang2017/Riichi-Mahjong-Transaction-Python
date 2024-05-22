@@ -33,17 +33,48 @@ class IDGenerator:
         self.node_id = 0
         
         
-    def get_new_id(self) -> int:
+    def get_next_id(self) -> int:
         self.node_id += 1
         return self.node_id
 
 
 class Foo:
     def __init__(self, id_gen: IDGenerator):
-        self.node_id = id_gen.get_new_id()
+        self.node_id = id_gen.get_next_id()
 
 if __name__ == "__main__":  # When testing
     id_generator = IDGenerator()
     assert Foo(id_generator).node_id == 1
 ```
 
+or
+
+```python
+class IDGenerator:
+    def __init__(self):
+        self.node_id = 0
+
+
+    def get_new_id(self) -> int:
+        self.node_id += 1
+        return self.node_id
+
+id_generator: IDGenerator = None
+
+def get_next_id():
+    if id_generator is None:
+        raise Exception()  # Can also return some default value
+    return id_generator.get_new_id()
+
+def set_id_generator(id_gen: IDGenerator):
+    global id_generator
+    id_generator = id_gen
+    
+class Foo:
+    def __init__(self):
+        self.node_id = get_next_id()
+        
+if __name__ == "__main__":  # When testing
+    set_id_generator(IDGenerator())
+    assert Foo().node_id == 1
+```

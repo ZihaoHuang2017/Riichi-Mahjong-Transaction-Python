@@ -8,3 +8,9 @@ def containing_any(
         if transaction.transaction_type == transaction_type:
             return transaction
     return None
+
+
+def test_func():
+    result = [1, 2]
+    print("--explore", result[0])
+    return result, 5
