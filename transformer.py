@@ -183,10 +183,10 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
 
 def generate_tests(obj: any, var_name: str, ipython, verbose: bool) -> list[str]:
     if verbose:
-        result = generate_verbose_tests(obj, var_name, {}, ipython)
+        result = generate_verbose_tests(obj, var_name, dict(), ipython)
     else:
         representation, assertions = generate_concise_tests(
-            obj, var_name, {}, True, ipython
+            obj, var_name, dict(), True, ipython
         )
         result = assertions
     if len(result) <= 20:  # Arbitrary
@@ -377,7 +377,7 @@ class ExpressionParser(ast.NodeVisitor):
         self.expression: str = ""
         self.caller_frame = caller_frame
         self.lineno = caller_frame.f_lineno - global_index_start + 1
-        self.stack: dict[str, tuple] = dict()
+        self.stack: dict[str, tuple[str, str]] = dict()
 
     def visit_For(
         self, node
@@ -387,111 +387,122 @@ class ExpressionParser(ast.NodeVisitor):
         ):  # The loop actually contains the desired print statement
             self.generic_visit(node)
             return
-        if isinstance(node.iter, ast.Call):
-            iterator = node.iter.func
-            if isinstance(iterator, ast.Attribute):
-                if iterator.attr == "items":  # dicts
-                    if (
-                            isinstance(node.target, ast.Tuple)
-                            and len(node.target.elts) == 2
-                    ):
-                        key, value = node.target.elts
-                        key_str = eval(
-                            ast.unparse(key),
-                            self.caller_frame.f_globals,
-                            self.caller_frame.f_locals,
-                        )
-                        self.stack[key.id] = (
-                            f"'{key_str}'",
-                        )
-                        self.stack[value.id] = (
-                            f"{ast.unparse(iterator.value)}",
-                            f'["{key_str}"]'
-                        )
-            elif isinstance(iterator, ast.Name):
-                func_name = iterator.id
-                if func_name == "range":
-                    assert len(node.iter.args) == 1
-                    # for a in range b:
-                    assert isinstance(node.target, ast.Name)
-                    self.stack[node.target.id] = (
-                        str(
-                            eval(
-                                node.target.id,
-                                self.caller_frame.f_globals,
-                                self.caller_frame.f_locals,
-                            )
-                        ),
-                        "",
-                    )
-                elif func_name == "enumerate":
-                    if (
-                        isinstance(node.target, ast.Tuple)
-                        and len(node.target.elts) == 2
-                    ):
-                        key, value = node.target.elts
-                        key_str = eval(
-                            ast.unparse(key),
-                            self.caller_frame.f_globals,
-                            self.caller_frame.f_locals,
-                        )
-                        self.stack[key.id] = (
-                            f"{key_str}",
-                        )
-                        self.stack[value.id] = (
-                            f"{node.iter.args[0].id}",
-                            f"[{key_str}]",
-                        )
-                elif func_name == "zip" and isinstance(node.target, ast.Tuple) and len(node.target.elts) == len(node.iter.args):
-                    for item, item_list in zip(node.target.elts, node.iter.args):
-                        obj = eval(
-                            item.id,
-                            self.caller_frame.f_globals,
-                            self.caller_frame.f_locals,
-                        )
-                        container = eval(
-                            item_list.id,
-                            self.caller_frame.f_globals,
-                            self.caller_frame.f_locals,
-                        )
-                        self.stack[item.id] = (
-                            f"{item_list.id}",
-                            f"[{container.index(obj)}]",  # TODO: support nonunique lists
-                        )
-
-        elif isinstance(node.iter, ast.Name) and isinstance(node.target, ast.Name):
-            obj = eval(
-                node.target.id,
-                self.caller_frame.f_globals,
-                self.caller_frame.f_locals,
-            )
-            container = eval(
-                node.iter.id,
-                self.caller_frame.f_globals,
-                self.caller_frame.f_locals,
-            )
-            if isinstance(container, typing.Sequence):
-                self.stack[node.target.id] = (
-                    f"{node.iter.id}",
-                    f"[{container.index(obj)}]",  # TODO: support nonunique lists
-                )
-            if isinstance(container, dict):
-                self.stack[node.target.id] = (
-                    f'"{obj}"', ""
-                )
-        else:
-            astpretty.pprint(node)
+        self.stack.update(extract_loop_params(node.target, node.iter, self.caller_frame))
         self.generic_visit(node)
 
     def visit_Call(self, node):
         if node.lineno == self.lineno and getattr(node.func, "id", "") == "print":
-            name_replacer = ReplaceNames(self.stack)
+            name_replacer = ReplaceNamesWithSuffix(self.stack)
             parsed_obj_name = name_replacer.visit(node.args[1])
             self.expression = ast.unparse(parsed_obj_name)
 
 
+def extract_loop_params(target_node, iterator_node, caller_frame) -> dict[str, tuple[str, str]]:
+    # match target_node, iterator_node:
+    #     case (ast.Name(), ast.Call(func=ast.Name(id="range"))):
+    #         pass
+    #     case (ast.Name(), _):
+
+    if isinstance(target_node, ast.Name):  # Assigning many to one
+        if isinstance(iterator_node, ast.Call) and isinstance(iterator_node.func, ast.Name) and iterator_node.func.id == "range":
+            return {
+                target_node.id: (
+                    str(
+                        eval(
+                            target_node.id,
+                            caller_frame.f_globals,
+                            caller_frame.f_locals,
+                        )
+                    ),
+                    "",
+                )
+            }
+        iter_parsed = eval(ast.unparse(iterator_node), caller_frame.f_globals, caller_frame.f_locals)
+        obj = eval(
+            target_node.id,
+            caller_frame.f_globals,
+            caller_frame.f_locals,
+        )
+        if isinstance(iter_parsed, typing.Sequence):
+            return {
+                target_node.id: (
+                    f"{ast.unparse(iterator_node)}",
+                    f"[{iter_parsed.index(obj)}]",  # TODO: support nonunique lists
+                )
+            }
+        if isinstance(iter_parsed, dict):
+            return {
+                target_node.id: (
+                    f'"{obj}"', ""
+                )
+            }
+        try:
+            iterator_node_list = list(iter_parsed)
+            return {
+                target_node.id: (
+                    f"list({ast.unparse(iterator_node)})",
+                    f"[{iterator_node_list.index(obj)}]",  # TODO: support nonunique lists
+                )
+            }
+        except Exception as e:
+            print(e)
+            pass
+        return dict()
+    if isinstance(iterator_node, ast.Call):  # Now target must be a tuple/list, disregarding weird situations
+        iterator_func = iterator_node.func
+        if isinstance(iterator_func, ast.Attribute) and iterator_func.attr == "items":
+            assert isinstance(iterator_func, ast.Attribute)
+            key, value_node = target_node.elts
+            key_str = eval(
+                ast.unparse(key),
+                caller_frame.f_globals,
+                caller_frame.f_locals,
+            )
+            return {
+                key.id: (f"'{key_str}'", ""),
+                value_node.id: (
+                    f"{ast.unparse(iterator_func.value)}",
+                    f'["{key_str}"]'
+                )
+            }
+        if isinstance(iterator_func, ast.Name):
+            func_name = iterator_func.id
+            if func_name == "enumerate":
+                index_node, value_node = target_node.elts
+                index_str = eval(
+                    ast.unparse(index_node),
+                    caller_frame.f_globals,
+                    caller_frame.f_locals,
+                )
+                result = {
+                    index_node.id: (f"{index_str}", "")
+                }
+                result.update(extract_loop_params(value_node, iterator_node.args[0], caller_frame))
+                return result
+            if func_name == "zip":
+                assert isinstance(target_node, ast.Tuple)
+                assert len(target_node.elts) == len(iterator_node.args)
+                result = dict()
+                for item, item_list in zip(target_node.elts, iterator_node.args):
+                    result.update(extract_loop_params(item, item_list, caller_frame))
+                return result
+    raise Exception("unhandled", ast.dump(target_node), ast.dump(iterator_node))
+
+
 class ReplaceNames(ast.NodeTransformer):
-    def __init__(self, names):
+    def __init__(self, names: dict[str, str]):
+        self.names = names
+
+    def visit_Name(self, node):
+        temp_id = node.id
+        if temp_id in self.names:
+            temp_id = self.names[temp_id]
+        node.id = temp_id
+        return node
+
+
+class ReplaceNamesWithSuffix(ast.NodeTransformer):
+    def __init__(self, names: dict[str, tuple[str, str]]):
         self.names = names
 
     def visit_Name(self, node):
@@ -548,22 +559,16 @@ def return_hijacked_print(original_print, buffer, lin, ipython, verbose):
         name_rewriter = RewriteToName()
         ret = ipython.ev(ast.unparse(name_rewriter.visit(return_type_determiner.ret)))
 
-        desired_ret = ""
-        if isinstance(ret, str):
-            desired_ret = ret
-        else:
-            for sub_ret in ret:
-                if isinstance(sub_ret, str) and explore_expression.startswith(sub_ret):
-                    desired_ret = sub_ret
-
-        # No support for multiple assignment yet
+        # TODO: support for multiple assignment by creating a dict instead
         assignment_target_names = ipython.ev(
             ast.unparse(name_rewriter.visit(parsed_input).targets[0])
         )
-        correct_assignment_name = match_return_with_assignment(
-            assignment_target_names, ret, desired_ret
+        name_replacements = match_return_with_assignment(
+            assignment_target_names, ret
         )
-        var_name = correct_assignment_name + explore_expression.lstrip(desired_ret)
+        reparsed_var_expression = ast.parse(explore_expression)
+        name_replacer = ReplaceNames(name_replacements)
+        var_name = ast.unparse(name_replacer.visit(reparsed_var_expression))
         buffer.extend(
             generate_tests(obj, var_name, ipython, verbose)
         )  # potential race cond?
@@ -574,15 +579,21 @@ def return_hijacked_print(original_print, buffer, lin, ipython, verbose):
 def match_return_with_assignment(
     assign_to: str or tuple[any] or list[any],
     return_from: str or tuple[any] or list[any],
-    desired_ret: str,
-):
+) -> dict[str, str]:
     if isinstance(return_from, str):
-        assert return_from == desired_ret and isinstance(assign_to, str)
-        return assign_to
+        assert isinstance(assign_to, str)
+        return {
+            return_from: assign_to
+        }
     if isinstance(assign_to, str):
-        return f"{assign_to}[{return_from.index(desired_ret)}]"
-    return assign_to[return_from.index(desired_ret)]
-
+        result = dict()
+        for i, sub_ret in enumerate(return_from):
+            result[sub_ret] = f"{assign_to}[{i}]"
+        return result
+    for sub_assign, sub_ret in zip(assign_to, return_from):
+        result = dict()
+        result.update(match_return_with_assignment(sub_assign, sub_ret))
+        return result
 
 # class Foo:
 #     def __init__(self, value):

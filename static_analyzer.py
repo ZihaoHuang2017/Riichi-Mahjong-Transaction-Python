@@ -71,7 +71,7 @@ def func2(cond: bool) -> Bar:
     return result
 
 
-def func3():
+def func3():  # not this!
     result = Foo("oof", Bar("bruh"))
     a = result.bar
     print("--explore", a.name)  # result.bar.name
@@ -118,3 +118,39 @@ def func8() -> list[list[list[int]]]:
             for k in range(len(results[i][j])):
                 print("--explore", results[i][j][k])
     return results
+
+
+def func9():
+    result1 = ["a", "b", "c"]
+    result2 = ["d", "e", "f"]
+    for i, j in zip(result1, result2):
+        print("--explore", i)
+    return result1, result2
+
+
+def func10():
+    result = {
+        "a": "b",
+        "c": "d",
+        "e": "f"
+    }
+    for i in result:
+        print("--explore", result[i])
+    return result
+
+def func11():
+    result = {
+        "a": "b",
+        "c": "d",
+        "e": "f"
+    }
+    for i, j in result.items():
+        print("--explore", j)
+    return result
+
+def func12():
+    result1 = ["a", "b", "c"]
+    result2 = ["d", "e", "f"]
+    for i in zip(result1, result2):
+        print("--explore", i[0])
+    return result1, result2
