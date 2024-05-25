@@ -10,6 +10,7 @@ import inspect
 from io import open
 
 import IPython
+import astpretty
 from IPython.core.error import StdinNotImplementedError
 from IPython.core.magic import register_line_magic
 from IPython.core.magic_arguments import magic_arguments, argument, parse_argstring
@@ -133,7 +134,9 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
             ipython.builtin_trap.remove_builtin("print", original_print)
             ipython.builtin_trap.add_builtin(
                 "print",
-                return_hijacked_print(original_print, print_buffer, lin, ipython),
+                return_hijacked_print(
+                    original_print, print_buffer, lin, ipython, args.verbose
+                ),
             )
             try:
                 if lin.startswith("%") or lin.endswith("?"):  # magic methods
@@ -152,19 +155,12 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
                 output_lines.append(line)
                 var_name = f"_{line}"
                 normal_statements.append(f"{var_name} = {revised_statement}")
-                if args.verbose:
-                    normal_statements.extend(
-                        generate_verbose_tests(obj_result, var_name, {}, ipython)
-                    )
-                else:
-                    representation, assertions = generate_concise_tests(
-                        obj_result, var_name, {}, True, ipython
-                    )
-                    normal_statements.extend(assertions)
-                    pass
+                normal_statements.extend(
+                    generate_tests(obj_result, var_name, ipython, args.verbose)
+                )
 
             except (SyntaxError, NameError) as e:
-                # raise e
+                raise e
                 continue
             # except Exception as e:
             #     import_statements.add("import pytest")
@@ -183,6 +179,19 @@ def load_ipython_extension(ipython: IPython.InteractiveShell):
                 print(" " * INDENT_SIZE + line, file=outfile)
         if close_at_end:
             outfile.close()
+
+
+def generate_tests(obj: any, var_name: str, ipython, verbose: bool) -> list[str]:
+    if verbose:
+        result = generate_verbose_tests(obj, var_name, {}, ipython)
+    else:
+        representation, assertions = generate_concise_tests(
+            obj, var_name, {}, True, ipython
+        )
+        result = assertions
+    if len(result) <= 20:  # Arbitrary
+        return result
+    return [f"assert str({var_name}) == {str(obj)}"]  # Too lengthy!
 
 
 def generate_verbose_tests(
@@ -372,13 +381,37 @@ class ExpressionParser(ast.NodeVisitor):
 
     def visit_For(
         self, node
-    ):  # handles for, foreach and enumerate, most scuffed method
-        if (
+    ):  # method is quite scuffed. There's quite a load of ways ppl can write scuffed
+        if not (
             node.lineno <= self.lineno <= node.end_lineno
         ):  # The loop actually contains the desired print statement
-            if isinstance(node.iter, ast.Call):
-                func_name = node.iter.func.id
-                if func_name == "range" and len(node.iter.args) == 1:
+            self.generic_visit(node)
+            return
+        if isinstance(node.iter, ast.Call):
+            iterator = node.iter.func
+            if isinstance(iterator, ast.Attribute):
+                if iterator.attr == "items":  # dicts
+                    if (
+                            isinstance(node.target, ast.Tuple)
+                            and len(node.target.elts) == 2
+                    ):
+                        key, value = node.target.elts
+                        key_str = eval(
+                            ast.unparse(key),
+                            self.caller_frame.f_globals,
+                            self.caller_frame.f_locals,
+                        )
+                        self.stack[key.id] = (
+                            f"'{key_str}'",
+                        )
+                        self.stack[value.id] = (
+                            f"{ast.unparse(iterator.value)}",
+                            f'["{key_str}"]'
+                        )
+            elif isinstance(iterator, ast.Name):
+                func_name = iterator.id
+                if func_name == "range":
+                    assert len(node.iter.args) == 1
                     # for a in range b:
                     assert isinstance(node.target, ast.Name)
                     self.stack[node.target.id] = (
@@ -391,38 +424,63 @@ class ExpressionParser(ast.NodeVisitor):
                         ),
                         "",
                     )
-                elif func_name == "enumerate" and len(node.iter.args) == 1:
+                elif func_name == "enumerate":
                     if (
                         isinstance(node.target, ast.Tuple)
                         and len(node.target.elts) == 2
                     ):
-                        index, obj_name = node.target.elts
-                        index_num = eval(
-                            ast.unparse(index),
+                        key, value = node.target.elts
+                        key_str = eval(
+                            ast.unparse(key),
                             self.caller_frame.f_globals,
                             self.caller_frame.f_locals,
                         )
-                        self.stack[obj_name.id] = (
-                            f"{node.iter.args[0].id}",
-                            f"[{index_num}]",
+                        self.stack[key.id] = (
+                            f"{key_str}",
                         )
-            elif isinstance(node.iter, ast.Name) and isinstance(node.target, ast.Name):
-                obj = eval(
-                    node.target.id,
-                    self.caller_frame.f_globals,
-                    self.caller_frame.f_locals,
-                )
-                container = eval(
-                    node.iter.id,
-                    self.caller_frame.f_globals,
-                    self.caller_frame.f_locals,
-                )
+                        self.stack[value.id] = (
+                            f"{node.iter.args[0].id}",
+                            f"[{key_str}]",
+                        )
+                elif func_name == "zip" and isinstance(node.target, ast.Tuple) and len(node.target.elts) == len(node.iter.args):
+                    for item, item_list in zip(node.target.elts, node.iter.args):
+                        obj = eval(
+                            item.id,
+                            self.caller_frame.f_globals,
+                            self.caller_frame.f_locals,
+                        )
+                        container = eval(
+                            item_list.id,
+                            self.caller_frame.f_globals,
+                            self.caller_frame.f_locals,
+                        )
+                        self.stack[item.id] = (
+                            f"{item_list.id}",
+                            f"[{container.index(obj)}]",  # TODO: support nonunique lists
+                        )
 
+        elif isinstance(node.iter, ast.Name) and isinstance(node.target, ast.Name):
+            obj = eval(
+                node.target.id,
+                self.caller_frame.f_globals,
+                self.caller_frame.f_locals,
+            )
+            container = eval(
+                node.iter.id,
+                self.caller_frame.f_globals,
+                self.caller_frame.f_locals,
+            )
+            if isinstance(container, typing.Sequence):
                 self.stack[node.target.id] = (
                     f"{node.iter.id}",
-                    f"[{container.index(obj)}]",
+                    f"[{container.index(obj)}]",  # TODO: support nonunique lists
                 )
-
+            if isinstance(container, dict):
+                self.stack[node.target.id] = (
+                    f'"{obj}"', ""
+                )
+        else:
+            astpretty.pprint(node)
         self.generic_visit(node)
 
     def visit_Call(self, node):
@@ -437,6 +495,7 @@ class ReplaceNames(ast.NodeTransformer):
         self.names = names
 
     def visit_Name(self, node):
+        print(self.names)
         temp_id = node.id
         bruh = []
         while temp_id in self.names:
@@ -454,7 +513,7 @@ class RewriteToName(ast.NodeTransformer):
         return ast.Constant(node.id)
 
 
-def return_hijacked_print(original_print, buffer, lin, ipython):
+def return_hijacked_print(original_print, buffer, lin, ipython, verbose):
     # TODO: add line number if it is not an assignment
     # TODO: deal with the case where the user enters more than 1 line for assignment
     # ASSUME: single point of return, yes ifs, the ret value starts with some part of the explore session,
@@ -506,7 +565,7 @@ def return_hijacked_print(original_print, buffer, lin, ipython):
         )
         var_name = correct_assignment_name + explore_expression.lstrip(desired_ret)
         buffer.extend(
-            generate_verbose_tests(obj, var_name, {}, ipython)
+            generate_tests(obj, var_name, ipython, verbose)
         )  # potential race cond?
 
     return hijack_print
