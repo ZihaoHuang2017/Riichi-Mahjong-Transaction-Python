@@ -398,13 +398,8 @@ class ExpressionParser(ast.NodeVisitor):
 
 
 def extract_loop_params(target_node, iterator_node, caller_frame) -> dict[str, tuple[str, str]]:
-    # match target_node, iterator_node:
-    #     case (ast.Name(), ast.Call(func=ast.Name(id="range"))):
-    #         pass
-    #     case (ast.Name(), _):
-
-    if isinstance(target_node, ast.Name):  # Assigning many to one
-        if isinstance(iterator_node, ast.Call) and isinstance(iterator_node.func, ast.Name) and iterator_node.func.id == "range":
+    match target_node, iterator_node:
+        case (ast.Name(), ast.Call(func=ast.Name(id="range"))):
             return {
                 target_node.id: (
                     str(
@@ -417,41 +412,40 @@ def extract_loop_params(target_node, iterator_node, caller_frame) -> dict[str, t
                     "",
                 )
             }
-        iter_parsed = eval(ast.unparse(iterator_node), caller_frame.f_globals, caller_frame.f_locals)
-        obj = eval(
-            target_node.id,
-            caller_frame.f_globals,
-            caller_frame.f_locals,
-        )
-        if isinstance(iter_parsed, typing.Sequence):
-            return {
-                target_node.id: (
-                    f"{ast.unparse(iterator_node)}",
-                    f"[{iter_parsed.index(obj)}]",  # TODO: support nonunique lists
-                )
-            }
-        if isinstance(iter_parsed, dict):
-            return {
-                target_node.id: (
-                    f'"{obj}"', ""
-                )
-            }
-        try:
-            iterator_node_list = list(iter_parsed)
-            return {
-                target_node.id: (
-                    f"list({ast.unparse(iterator_node)})",
-                    f"[{iterator_node_list.index(obj)}]",  # TODO: support nonunique lists
-                )
-            }
-        except Exception as e:
-            print(e)
-            pass
-        return dict()
-    if isinstance(iterator_node, ast.Call):  # Now target must be a tuple/list, disregarding weird situations
-        iterator_func = iterator_node.func
-        if isinstance(iterator_func, ast.Attribute) and iterator_func.attr == "items":
-            assert isinstance(iterator_func, ast.Attribute)
+        case (ast.Name(), _):
+            unparsed_iterator = ast.unparse(iterator_node)
+            evaluated_iterator = eval(unparsed_iterator, caller_frame.f_globals, caller_frame.f_locals)
+            obj = eval(
+                target_node.id,
+                caller_frame.f_globals,
+                caller_frame.f_locals,
+            )
+            if isinstance(evaluated_iterator, typing.Sequence):
+                return {
+                    target_node.id: (
+                        f"{unparsed_iterator}",
+                        f"[{evaluated_iterator.index(obj)}]",  # TODO: support nonunique lists
+                    )
+                }
+            if isinstance(evaluated_iterator, dict):
+                return {
+                    target_node.id: (
+                        f'"{obj}"', ""
+                    )
+                }
+            try:  # handles sets, hopefully
+                iterator_node_list = list(evaluated_iterator)
+                return {
+                    target_node.id: (
+                        f"list({unparsed_iterator})",
+                        f"[{iterator_node_list.index(obj)}]",  # TODO: support nonunique lists
+                    )
+                }
+            except Exception as e:
+                print(e)
+                pass
+            return dict()
+        case (ast.Tuple() | ast.List(), ast.Call(func=ast.Attribute(attr="items"))):
             key, value_node = target_node.elts
             key_str = eval(
                 ast.unparse(key),
@@ -461,32 +455,31 @@ def extract_loop_params(target_node, iterator_node, caller_frame) -> dict[str, t
             return {
                 key.id: (f"'{key_str}'", ""),
                 value_node.id: (
-                    f"{ast.unparse(iterator_func.value)}",
+                    f"{ast.unparse(iterator_node.func.value)}",
                     f'["{key_str}"]'
                 )
             }
-        if isinstance(iterator_func, ast.Name):
-            func_name = iterator_func.id
-            if func_name == "enumerate":
-                index_node, value_node = target_node.elts
-                index_str = eval(
-                    ast.unparse(index_node),
-                    caller_frame.f_globals,
-                    caller_frame.f_locals,
-                )
-                result = {
-                    index_node.id: (f"{index_str}", "")
-                }
-                result.update(extract_loop_params(value_node, iterator_node.args[0], caller_frame))
-                return result
-            if func_name == "zip":
-                assert isinstance(target_node, ast.Tuple)
-                assert len(target_node.elts) == len(iterator_node.args)
-                result = dict()
-                for item, item_list in zip(target_node.elts, iterator_node.args):
-                    result.update(extract_loop_params(item, item_list, caller_frame))
-                return result
-    raise Exception("unhandled", ast.dump(target_node), ast.dump(iterator_node))
+        case (ast.Tuple() | ast.List(), ast.Call(func=ast.Name(id="enumerate"))):
+            index_node, value_node = target_node.elts
+            index_str = eval(
+                ast.unparse(index_node),
+                caller_frame.f_globals,
+                caller_frame.f_locals,
+            )
+            result = {
+                index_node.id: (f"{index_str}", "")
+            }
+            result.update(extract_loop_params(value_node, iterator_node.args[0], caller_frame))
+            return result
+        case (ast.Tuple() | ast.List(), ast.Call(func=ast.Name(id="zip"))):
+            assert isinstance(target_node, ast.Tuple)
+            assert len(target_node.elts) == len(iterator_node.args)
+            result = dict()
+            for item, item_list in zip(target_node.elts, iterator_node.args):
+                result.update(extract_loop_params(item, item_list, caller_frame))
+            return result
+        case _:
+            raise Exception("unhandled", ast.dump(target_node), ast.dump(iterator_node))
 
 
 class ReplaceNames(ast.NodeTransformer):
@@ -571,7 +564,7 @@ def return_hijacked_print(original_print, buffer, lin, ipython, verbose):
         var_name = ast.unparse(name_replacer.visit(reparsed_var_expression))
         buffer.extend(
             generate_tests(obj, var_name, ipython, verbose)
-        )  # potential race cond?
+        )  # can't return, so forced to do this
 
     return hijack_print
 
@@ -590,10 +583,10 @@ def match_return_with_assignment(
         for i, sub_ret in enumerate(return_from):
             result[sub_ret] = f"{assign_to}[{i}]"
         return result
+    result = dict()
     for sub_assign, sub_ret in zip(assign_to, return_from):
-        result = dict()
         result.update(match_return_with_assignment(sub_assign, sub_ret))
-        return result
+    return result
 
 # class Foo:
 #     def __init__(self, value):
