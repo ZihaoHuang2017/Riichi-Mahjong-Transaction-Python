@@ -2,15 +2,14 @@ import ast
 import builtins
 import dataclasses
 import enum
+import inspect
 import os
 import sys
 import types
 import typing
-import inspect
 from io import open
 
 import IPython
-import astpretty
 from IPython.core.error import StdinNotImplementedError
 from IPython.core.magic import register_line_magic
 from IPython.core.magic_arguments import magic_arguments, argument, parse_argstring
@@ -36,7 +35,7 @@ class RewriteUnderscores(ast.NodeTransformer):
             return node
 
 
-def revise_line_input(lin, output_lines):
+def revise_line_input(lin: str, output_lines: list[str]):
     # Undefined Behaviour if the user tries to invoke _ with len < 3. Why would you want to do that?
     one_underscore, two_underscores, three_underscores = (
         output_lines[-1],
@@ -52,7 +51,7 @@ def revise_line_input(lin, output_lines):
 
 
 def assert_recursive_depth(
-    obj: any, ipython: IPython.InteractiveShell, visited: list
+    obj: any, ipython: IPython.InteractiveShell, visited: list[any]
 ) -> bool:
     if is_legal_python_obj(repr(obj), obj, ipython):
         return True
@@ -195,7 +194,7 @@ def generate_tests(obj: any, var_name: str, ipython, verbose: bool) -> list[str]
 
 
 def generate_verbose_tests(
-    obj: any, var_name: str, visited: dict[int, str], ipython
+    obj: any, var_name: str, visited: dict[int, str], ipython: IPython.InteractiveShell
 ) -> list[str]:
     """Parses the object and generates verbose tests.
 
@@ -206,9 +205,11 @@ def generate_verbose_tests(
         obj (any): The object to be transformed into tests.
         var_name (str): The name referring to the object.
         visited (dict[int, str]): A dict associating the obj with the var_names. Used for cycle detection.
+        ipython (IPython.InteractiveShell):  bruh
 
     Returns:
         list[str]: A list of assertions to be added.
+
     """
     if obj is True:
         return [f"assert {var_name}"]
@@ -257,7 +258,11 @@ def generate_verbose_tests(
 
 
 def generate_concise_tests(
-    obj: any, var_name: str, visited: dict[int, str], propagation: bool, ipython
+    obj: any,
+    var_name: str,
+    visited: dict[int, str],
+    propagation: bool,
+    ipython: IPython.InteractiveShell,
 ) -> tuple[str, list[str]]:
     """Parses the object and generates concise tests.
 
@@ -269,10 +274,10 @@ def generate_concise_tests(
         var_name (str): The name referring to the object.
         visited (dict[int, str]): A dict associating the obj with the var_names. Used for cycle detection.
         propagation (bool): Whether the result should be propagated.
+        ipython (IPython.InteractiveShell):  bruh
 
     Returns:
         tuple[str, list[str]]: The repr of the obj if it can be parsed easily, var_name if it can't, and a list of
-        assertions to be added
     """
     # readable-repr, assertions
     if type(type(obj)) is enum.EnumMeta and is_legal_python_obj(
@@ -347,7 +352,9 @@ def generate_concise_tests(
         return var_name, overall_assertions
 
 
-def get_type_assertion(obj, var_name, ipython) -> str:
+def get_type_assertion(
+    obj: any, var_name: str, ipython: IPython.InteractiveShell
+) -> str:
     class_name = type(obj).__name__
     if is_legal_python_obj(class_name, type(obj), ipython):
         return f"assert type({var_name}) is {class_name}"
@@ -373,10 +380,10 @@ class DetermineReturnType(ast.NodeVisitor):
 
 
 class ExpressionParser(ast.NodeVisitor):
-    def __init__(self, caller_frame: types.FrameType, global_index_start):
+    def __init__(self, caller_frame: types.FrameType, global_index_start: int):
         self.expression: str = ""
-        self.caller_frame = caller_frame
-        self.lineno = caller_frame.f_lineno - global_index_start + 1
+        self.caller_frame: types.FrameType = caller_frame
+        self.lineno: int = caller_frame.f_lineno - global_index_start + 1
         self.stack: dict[str, tuple[str, str]] = dict()
 
     def visit_For(
@@ -387,7 +394,9 @@ class ExpressionParser(ast.NodeVisitor):
         ):  # The loop actually contains the desired print statement
             self.generic_visit(node)
             return
-        self.stack.update(extract_loop_params(node.target, node.iter, self.caller_frame))
+        self.stack.update(
+            extract_loop_params(node.target, node.iter, self.caller_frame, -1)
+        )
         self.generic_visit(node)
 
     def visit_Call(self, node):
@@ -397,7 +406,12 @@ class ExpressionParser(ast.NodeVisitor):
             self.expression = ast.unparse(parsed_obj_name)
 
 
-def extract_loop_params(target_node, iterator_node, caller_frame) -> dict[str, tuple[str, str]]:
+def extract_loop_params(
+    target_node: ast.expr,
+    iterator_node: ast.expr,
+    caller_frame: types.FrameType,
+    override_index: int,
+) -> dict[str, tuple[str, str]]:
     match target_node, iterator_node:
         case (ast.Name(), ast.Call(func=ast.Name(id="range"))):
             return {
@@ -414,35 +428,41 @@ def extract_loop_params(target_node, iterator_node, caller_frame) -> dict[str, t
             }
         case (ast.Name(), _):
             unparsed_iterator = ast.unparse(iterator_node)
-            evaluated_iterator = eval(unparsed_iterator, caller_frame.f_globals, caller_frame.f_locals)
+            evaluated_iterator = eval(
+                unparsed_iterator, caller_frame.f_globals, caller_frame.f_locals
+            )
             obj = eval(
                 target_node.id,
                 caller_frame.f_globals,
                 caller_frame.f_locals,
             )
+            if isinstance(evaluated_iterator, dict):
+                return {target_node.id: (f'"{obj}"', "")}
             if isinstance(evaluated_iterator, typing.Sequence):
+                if override_index == -1:
+                    index = evaluated_iterator.index(obj)
+                else:
+                    index = override_index
                 return {
                     target_node.id: (
                         f"{unparsed_iterator}",
-                        f"[{evaluated_iterator.index(obj)}]",  # TODO: support nonunique lists
+                        f"[{index}]",  # TODO: support nonunique lists
                     )
                 }
-            if isinstance(evaluated_iterator, dict):
-                return {
-                    target_node.id: (
-                        f'"{obj}"', ""
-                    )
-                }
+
             try:  # handles sets, hopefully
                 iterator_node_list = list(evaluated_iterator)
+                if override_index == -1:
+                    index = iterator_node_list.index(obj)
+                else:
+                    index = override_index
                 return {
                     target_node.id: (
                         f"list({unparsed_iterator})",
-                        f"[{iterator_node_list.index(obj)}]",  # TODO: support nonunique lists
+                        f"[{index}]",  # TODO: support nonunique lists
                     )
                 }
             except Exception as e:
-                print(e)
                 pass
             return dict()
         case (ast.Tuple() | ast.List(), ast.Call(func=ast.Attribute(attr="items"))):
@@ -456,27 +476,31 @@ def extract_loop_params(target_node, iterator_node, caller_frame) -> dict[str, t
                 key.id: (f"'{key_str}'", ""),
                 value_node.id: (
                     f"{ast.unparse(iterator_node.func.value)}",
-                    f'["{key_str}"]'
-                )
+                    f'["{key_str}"]',
+                ),
             }
         case (ast.Tuple() | ast.List(), ast.Call(func=ast.Name(id="enumerate"))):
             index_node, value_node = target_node.elts
-            index_str = eval(
+            index_num = eval(
                 ast.unparse(index_node),
                 caller_frame.f_globals,
                 caller_frame.f_locals,
             )
-            result = {
-                index_node.id: (f"{index_str}", "")
-            }
-            result.update(extract_loop_params(value_node, iterator_node.args[0], caller_frame))
+            result = {index_node.id: (f"{index_num}", "")}
+            result.update(
+                extract_loop_params(
+                    value_node, iterator_node.args[0], caller_frame, index_num
+                )
+            )
             return result
         case (ast.Tuple() | ast.List(), ast.Call(func=ast.Name(id="zip"))):
             assert isinstance(target_node, ast.Tuple)
             assert len(target_node.elts) == len(iterator_node.args)
             result = dict()
             for item, item_list in zip(target_node.elts, iterator_node.args):
-                result.update(extract_loop_params(item, item_list, caller_frame))
+                result.update(
+                    extract_loop_params(item, item_list, caller_frame, override_index)
+                )
             return result
         case _:
             raise Exception("unhandled", ast.dump(target_node), ast.dump(iterator_node))
@@ -499,7 +523,6 @@ class ReplaceNamesWithSuffix(ast.NodeTransformer):
         self.names = names
 
     def visit_Name(self, node):
-        print(self.names)
         temp_id = node.id
         bruh = []
         while temp_id in self.names:
@@ -517,7 +540,13 @@ class RewriteToName(ast.NodeTransformer):
         return ast.Constant(node.id)
 
 
-def return_hijacked_print(original_print, buffer, lin, ipython, verbose):
+def return_hijacked_print(
+    original_print,
+    buffer: list,
+    lin: str,
+    ipython: IPython.InteractiveShell,
+    verbose: bool,
+):
     # TODO: add line number if it is not an assignment
     # TODO: deal with the case where the user enters more than 1 line for assignment
     # ASSUME: single point of return, yes ifs, the ret value starts with some part of the explore session,
@@ -556,9 +585,7 @@ def return_hijacked_print(original_print, buffer, lin, ipython, verbose):
         assignment_target_names = ipython.ev(
             ast.unparse(name_rewriter.visit(parsed_input).targets[0])
         )
-        name_replacements = match_return_with_assignment(
-            assignment_target_names, ret
-        )
+        name_replacements = match_return_with_assignment(assignment_target_names, ret)
         reparsed_var_expression = ast.parse(explore_expression)
         name_replacer = ReplaceNames(name_replacements)
         var_name = ast.unparse(name_replacer.visit(reparsed_var_expression))
@@ -575,9 +602,7 @@ def match_return_with_assignment(
 ) -> dict[str, str]:
     if isinstance(return_from, str):
         assert isinstance(assign_to, str)
-        return {
-            return_from: assign_to
-        }
+        return {return_from: assign_to}
     if isinstance(assign_to, str):
         result = dict()
         for i, sub_ret in enumerate(return_from):
@@ -587,6 +612,7 @@ def match_return_with_assignment(
     for sub_assign, sub_ret in zip(assign_to, return_from):
         result.update(match_return_with_assignment(sub_assign, sub_ret))
     return result
+
 
 # class Foo:
 #     def __init__(self, value):

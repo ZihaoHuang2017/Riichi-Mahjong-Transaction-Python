@@ -129,24 +129,18 @@ def func9():
 
 
 def func10():
-    result = {
-        "a": "b",
-        "c": "d",
-        "e": "f"
-    }
+    result = {"a": "b", "c": "d", "e": "f"}
     for i in result:
         print("--explore", result[i])
     return result
 
+
 def func11():
-    result = {
-        "a": "b",
-        "c": "d",
-        "e": "f"
-    }
+    result = {"a": "b", "c": "d", "e": "f"}
     for i, j in result.items():
         print("--explore", j)
     return result
+
 
 def func12():
     result1 = ["a", "b", "c"]
@@ -154,3 +148,18 @@ def func12():
     for i in zip(result1, result2):
         print("--explore", i[0])
     return result1, result2
+
+
+def func13():
+    result = [1, 2, 3, 3, 3, 2, 1]
+    for i in result:
+        print("--explore", i)
+    return result
+
+
+def func14():
+    result = [[1, 2, 1, 2], [2, 1, 2, 1], [1, 2, 1, 2]]
+    for a, b in enumerate(result):
+        for c, d in enumerate(b):
+            print("--explore", d)
+    return result
