@@ -198,6 +198,7 @@ def determine_honba_transaction(transactions: list[Transaction]) -> Transaction:
     for transaction in transactions:
         if transaction.score_deltas[headbump_winner] > 0:
             return transaction
+    raise Exception("No transaction affects honba")
 
 
 def add_honba(transaction: Transaction, honba: int) -> Transaction:
@@ -245,9 +246,9 @@ class RiichiRound:
         self.round_number = new_round.round_number
         self.honba = new_round.honba
         self.start_riichi_stick_count = new_round.start_riichi_stick_count
-        self.riichis = []
-        self.tenpais = []
-        self.transactions = []
+        self.riichis: list[int] = []
+        self.tenpais: list[int] = []
+        self.transactions: list[Transaction] = []
         self.dealer_index = self.round_number - 1
 
     def add_deal_in(self, winner_index: int, loser_index: int, hand: Hand):

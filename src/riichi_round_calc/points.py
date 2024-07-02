@@ -5,7 +5,7 @@ MANGAN_BASE_POINT = 2000
 
 
 def mangan_value(points: int) -> int:
-    multiplier = 0
+    multiplier = 0.
     if points == 5:
         multiplier = 1
     elif points <= 7:
@@ -25,7 +25,7 @@ def mangan_value(points: int) -> int:
         multiplier = 4 * 4
     elif points == 65:
         multiplier = 4 * 5
-    return MANGAN_BASE_POINT * multiplier
+    return int(MANGAN_BASE_POINT * multiplier)
 
 
 def calculate_hand_value(multiplier: int, hand: Hand):
