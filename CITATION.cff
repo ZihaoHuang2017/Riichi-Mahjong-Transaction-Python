@@ -1,0 +1,18 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: UBC MJC Website
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - name: UBC Mahjong Club
+    address: 6133 University Blvd
+    city: Vancouver
+    country: CA
+    post-code: V6T 1Z1
+    location: 3206B
+    region: British Columbia
+    email: ubcmahjongclub@gmail.com
